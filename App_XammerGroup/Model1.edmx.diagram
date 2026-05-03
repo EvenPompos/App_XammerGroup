@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="7c844d705efc4ffaab00b6b4293b330f" Name="Diagram1">
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.OrderItems" Width="1.5" PointX="7.5" PointY="4.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.Orders" Width="1.5" PointX="5.25" PointY="4.125" IsExpanded="true" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.OrderStatuses" Width="1.5" PointX="3" PointY="1.125" IsExpanded="true" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.ProductionStages" Width="1.5" PointX="10.5" PointY="4.375" IsExpanded="true" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.ProductionStageStatuses" Width="1.5" PointX="8.25" PointY="2" IsExpanded="true" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.ProductionStageTypes" Width="1.5" PointX="8.25" PointY="8.25" IsExpanded="true" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.Products" Width="1.5" PointX="5.25" PointY="0.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.Roles" Width="1.5" PointX="0.75" PointY="5.125" IsExpanded="true" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.Users" Width="1.5" PointX="3" PointY="4.125" IsExpanded="true" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK__OrderItem__Order__5BE2A6F2" ManuallyRouted="false" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK__OrderItem__Produ__5CD6CB2B" ManuallyRouted="false" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK__Orders__ClientId__571DF1D5" ManuallyRouted="false" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK__Orders__ManagerI__5812160E" ManuallyRouted="false" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK__Orders__StatusId__59063A47" ManuallyRouted="false" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK__Productio__Order__6383C8BA" ManuallyRouted="false" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK__Productio__Assig__656C112C" ManuallyRouted="false" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK__Productio__Stage__6477ECF3" ManuallyRouted="false" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK__Productio__Stage__66603565" ManuallyRouted="false" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK__Users__RoleId__4E88ABD4" ManuallyRouted="false" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

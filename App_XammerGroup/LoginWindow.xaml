@@ -1,0 +1,85 @@
+﻿<Window x:Class="App_XammerGroup.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Вход"
+        WindowStartupLocation="CenterScreen"
+        Width="1200"
+        Height="700"
+        ResizeMode="NoResize"
+        Background="#111111">
+
+    <Grid>
+        <!-- Фон -->
+        <Image x:Name="BackgroundImage"
+               Stretch="UniformToFill"
+               Opacity="0.35"/>
+
+        <!-- Карточка входа -->
+        <Grid HorizontalAlignment="Center"
+              VerticalAlignment="Center">
+
+            <materialDesign:Card Width="380"
+                                 Padding="24"
+                                 UniformCornerRadius="18"
+                                 Background="#1E1E1E">
+
+                <StackPanel>
+
+                    <TextBlock Text="Вход в систему"
+                               FontSize="24"
+                               Foreground="White"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,20"/>
+
+                    <!-- EMAIL -->
+                    <TextBox x:Name="LoginBox"
+                             Margin="0,8"
+                             Height="40"
+                             Foreground="White"
+                             materialDesign:HintAssist.Hint="Email"/>
+
+                    <!-- PASSWORD -->
+                    <PasswordBox x:Name="PasswordBox"
+                                 Margin="0,8"
+                                 Height="40"
+                                 Foreground="White"
+                                 materialDesign:HintAssist.Hint="Пароль"/>
+
+                    <!-- ERROR -->
+                    <TextBlock x:Name="ErrorText"
+                               Foreground="#FFB00020"
+                               TextWrapping="Wrap"
+                               Margin="0,8"/>
+
+                    <!-- BUTTON -->
+                    <Button Content="Войти"
+                            Height="42"
+                            Margin="0,12,0,0"
+                            Click="Login_Click"
+                            Style="{StaticResource MaterialDesignRaisedButton}"/>
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Button Grid.Column="0"
+                                Content="Регистрация"
+                                Margin="0,0,8,0"
+                                Click="Register_Click"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"/>
+
+                        <Button Grid.Column="1"
+                                Content="Забыли пароль?"
+                                Margin="8,0,0,0"
+                                Click="ForgotPassword_Click"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                    </Grid>
+
+                </StackPanel>
+            </materialDesign:Card>
+        </Grid>
+    </Grid>
+</Window>
