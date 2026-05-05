@@ -96,6 +96,17 @@
                     </StackPanel>
                 </Button>
 
+                <Button x:Name="InventoryButton"
+                        Click="Inventory_Click"
+                        Style="{DynamicResource MaterialDesignFlatButton}"
+                        Foreground="White"
+                        HorizontalContentAlignment="Left">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon Kind="Warehouse" Width="22" Margin="0,0,10,0"/>
+                        <TextBlock Text="Склад"/>
+                    </StackPanel>
+                </Button>
+
                 <Button x:Name="AdminButton"
                         Click="Admin_Click"
                         Style="{DynamicResource MaterialDesignFlatButton}"

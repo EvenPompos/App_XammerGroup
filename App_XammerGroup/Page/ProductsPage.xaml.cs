@@ -58,6 +58,10 @@ namespace App_XammerGroup
         {
             using (var db = new DB_Xammer_groupEntities())
             {
+                InventoryService.EnsureSchemaAndSeed(db);
+                var availabilityByProductId = InventoryService.GetProductAvailability()
+                    .ToDictionary(item => item.ProductId, item => item);
+
                 _allProducts = db.Products
                     .ToList()
                     .Select(product => new ProductListItem
@@ -66,7 +70,12 @@ namespace App_XammerGroup
                         ProductName = product.ProductName,
                         Description = product.Description,
                         Price = product.Price,
-                        IsActive = product.IsActive ?? false
+                        IsActive = product.IsActive ?? false,
+                        IsAvailable = availabilityByProductId.TryGetValue(product.ProductId, out ProductAvailabilityInfo availability) &&
+                            availability.IsAvailable,
+                        AvailabilityText = availabilityByProductId.TryGetValue(product.ProductId, out availability)
+                            ? availability.AvailabilityText
+                            : "\u041d\u0435\u0442 \u0441\u043e\u0441\u0442\u0430\u0432\u0430"
                     })
                     .ToList();
             }
@@ -193,6 +202,25 @@ namespace App_XammerGroup
                     return;
                 }
 
+                var shortages = InventoryService.ValidateAvailability(db, new[]
+                {
+                    new CartItem
+                    {
+                        ProductId = product.ProductId,
+                        ProductName = product.ProductName,
+                        Price = product.Price,
+                        Quantity = 1
+                    }
+                });
+
+                if (shortages.Count > 0)
+                {
+                    MessageBox.Show(InventoryService.BuildShortageMessage(shortages), "\u0421\u043a\u043b\u0430\u0434", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    LoadProducts();
+                    ApplyFilters();
+                    return;
+                }
+
                 CartService.AddProduct(_userId, product, 1);
             }
 
@@ -226,6 +254,8 @@ namespace App_XammerGroup
             public string Description { get; set; }
             public decimal Price { get; set; }
             public bool IsActive { get; set; }
+            public bool IsAvailable { get; set; }
+            public string AvailabilityText { get; set; }
 
             public string ShortDescription
             {

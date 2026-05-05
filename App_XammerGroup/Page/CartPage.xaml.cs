@@ -66,46 +66,60 @@ namespace App_XammerGroup
             {
                 using (var db = new DB_Xammer_groupEntities())
                 {
-                    int statusId = ResolveInitialStatusId(db);
-
-                    decimal total = items.Sum(item => item.TotalPrice);
-                    string description = string.Join(", ", items.Select(item => item.ProductName));
-
-                    var order = new Orders
+                    InventoryService.EnsureSchemaAndSeed(db);
+                    var shortages = InventoryService.ValidateAvailability(db, items);
+                    if (shortages.Count > 0)
                     {
-                        ClientId = _userId,
-                        ManagerId = null,
-                        StatusId = statusId,
-                        CreatedDate = DateTime.Now,
-                        DeadlineDate = null,
-                        TotalAmount = total,
-                        Description = description,
-                        Comment = NormalizeComment(CommentBox.Text)
-                    };
-
-                    db.Orders.Add(order);
-                    db.SaveChanges();
-
-                    foreach (var item in items)
-                    {
-                        db.OrderItems.Add(new OrderItems
-                        {
-                            OrderId = order.OrderId,
-                            ProductId = item.ProductId,
-                            Quantity = item.Quantity,
-                            Price = item.Price
-                        });
+                        ErrorText.Text = InventoryService.BuildShortageMessage(shortages);
+                        return;
                     }
 
-                    db.SaveChanges();
-                    CartService.Clear(_userId);
+                    using (var transaction = db.Database.BeginTransaction())
+                    {
+                        int statusId = ResolveInitialStatusId(db);
 
-                    ErrorText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF2E7D32"));
-                    ErrorText.Text = $"\u0417\u0430\u043a\u0430\u0437 \u2116{order.OrderId} \u0443\u0441\u043f\u0435\u0448\u043d\u043e \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d.";
-                    CommentBox.Text = string.Empty;
+                        decimal total = items.Sum(item => item.TotalPrice);
+                        string description = string.Join(", ", items.Select(item => item.ProductName));
 
-                    LoadCart();
-                    _orderPlacedAction?.Invoke();
+                        var order = new Orders
+                        {
+                            ClientId = _userId,
+                            ManagerId = null,
+                            StatusId = statusId,
+                            CreatedDate = DateTime.Now,
+                            DeadlineDate = null,
+                            TotalAmount = total,
+                            Description = description,
+                            Comment = NormalizeComment(CommentBox.Text)
+                        };
+
+                        db.Orders.Add(order);
+                        db.SaveChanges();
+
+                        foreach (var item in items)
+                        {
+                            db.OrderItems.Add(new OrderItems
+                            {
+                                OrderId = order.OrderId,
+                                ProductId = item.ProductId,
+                                Quantity = item.Quantity,
+                                Price = item.Price
+                            });
+                        }
+
+                        db.SaveChanges();
+                        InventoryService.WriteOffMaterials(db, order.OrderId, items);
+                        transaction.Commit();
+
+                        CartService.Clear(_userId);
+
+                        ErrorText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF2E7D32"));
+                        ErrorText.Text = $"\u0417\u0430\u043a\u0430\u0437 \u2116{order.OrderId} \u0443\u0441\u043f\u0435\u0448\u043d\u043e \u043e\u0444\u043e\u0440\u043c\u043b\u0435\u043d. \u041c\u0430\u0442\u0435\u0440\u0438\u0430\u043b\u044b \u0441\u043f\u0438\u0441\u0430\u043d\u044b \u0441\u043e \u0441\u043a\u043b\u0430\u0434\u0430.";
+                        CommentBox.Text = string.Empty;
+
+                        LoadCart();
+                        _orderPlacedAction?.Invoke();
+                    }
                 }
             }
             catch (Exception ex)

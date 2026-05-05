@@ -108,6 +108,9 @@
                         <DataGridTextColumn Header="Статус"
                                             Width="120"
                                             Binding="{Binding ActiveText}"/>
+                        <DataGridTextColumn Header="Склад"
+                                            Width="170"
+                                            Binding="{Binding AvailabilityText}"/>
                         <DataGridTemplateColumn x:Name="CartColumn"
                                                 Header="Корзина"
                                                 Width="170">
@@ -116,6 +119,7 @@
                                     <Button Content="Добавить"
                                             Padding="14,6"
                                             Tag="{Binding}"
+                                            IsEnabled="{Binding IsAvailable}"
                                             Click="AddToCart_Click"
                                             Style="{StaticResource MaterialDesignOutlinedButton}"/>
                                 </DataTemplate>

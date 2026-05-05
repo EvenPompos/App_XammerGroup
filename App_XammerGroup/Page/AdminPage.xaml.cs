@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Globalization;
 using System.Linq;
 using System.Net.Mail;
@@ -23,6 +24,7 @@ namespace App_XammerGroup
             {
                 LoadRoles();
                 LoadProducts();
+                LoadInventory();
                 LoadEmployees();
                 SelectSection(initialSection);
             };
@@ -30,7 +32,20 @@ namespace App_XammerGroup
 
         private void SelectSection(AdminSection section)
         {
-            AdminTabs.SelectedItem = section == AdminSection.Employees ? EmployeesTab : ProductsTab;
+            switch (section)
+            {
+                case AdminSection.Employees:
+                    AdminTabs.SelectedItem = EmployeesTab;
+                    break;
+
+                case AdminSection.Inventory:
+                    AdminTabs.SelectedItem = InventoryTab;
+                    break;
+
+                default:
+                    AdminTabs.SelectedItem = ProductsTab;
+                    break;
+            }
         }
 
         private void LoadRoles()
@@ -53,6 +68,8 @@ namespace App_XammerGroup
         {
             using (var db = new DB_Xammer_groupEntities())
             {
+                InventoryService.EnsureSchemaAndSeed(db);
+
                 ProductsGrid.ItemsSource = db.Products
                     .OrderBy(product => product.ProductName)
                     .ToList()
@@ -65,6 +82,11 @@ namespace App_XammerGroup
                     })
                     .ToList();
             }
+        }
+
+        private void LoadInventory()
+        {
+            InventoryGrid.ItemsSource = InventoryService.GetInventoryRows();
         }
 
         private void LoadEmployees()
@@ -161,9 +183,13 @@ namespace App_XammerGroup
                     }
 
                     bool hasItems = db.OrderItems.Any(item => item.ProductId == product.ProductId);
-                    if (hasItems)
+                    bool hasRecipe = db.Database.SqlQuery<int>(
+                        "SELECT COUNT(1) FROM dbo.ProductMaterials WHERE ProductId = @productId",
+                        new SqlParameter("@productId", product.ProductId)).Single() > 0;
+
+                    if (hasItems || hasRecipe)
                     {
-                        ProductsErrorText.Text = "Нельзя удалить товар, который уже используется в заказах.";
+                        ProductsErrorText.Text = "\u041d\u0435\u043b\u044c\u0437\u044f \u0443\u0434\u0430\u043b\u0438\u0442\u044c \u0442\u043e\u0432\u0430\u0440, \u043a\u043e\u0442\u043e\u0440\u044b\u0439 \u0443\u0436\u0435 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u0442\u0441\u044f \u0432 \u0437\u0430\u043a\u0430\u0437\u0430\u0445 \u0438\u043b\u0438 \u0441\u043f\u0435\u0446\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u0438.";
                         return;
                     }
 
@@ -179,6 +205,91 @@ namespace App_XammerGroup
             {
                 ProductsErrorText.Text = "Не удалось удалить товар.";
                 MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void AddInventory_Click(object sender, RoutedEventArgs e)
+        {
+            InventoryErrorText.Foreground = ErrorBrush();
+            InventoryErrorText.Text = string.Empty;
+
+            var selectedItem = InventoryGrid.SelectedItem as InventoryRow;
+            if (selectedItem == null)
+            {
+                InventoryErrorText.Text = "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b \u0434\u043b\u044f \u043f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f.";
+                return;
+            }
+
+            if (!TryParseDecimal(InventoryQuantityBox.Text, out decimal quantity) || quantity <= 0)
+            {
+                InventoryErrorText.Text = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043f\u043e\u043b\u043e\u0436\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0435 \u043a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e.";
+                return;
+            }
+
+            try
+            {
+                InventoryService.AddStock(selectedItem.InventoryItemId, quantity, NormalizeText(InventoryCommentBox.Text));
+                InventoryQuantityBox.Text = string.Empty;
+                InventoryCommentBox.Text = string.Empty;
+                LoadInventory();
+                LoadProducts();
+
+                InventoryErrorText.Foreground = SuccessBrush();
+                InventoryErrorText.Text = "\u0421\u043a\u043b\u0430\u0434 \u043f\u043e\u043f\u043e\u043b\u043d\u0435\u043d.";
+            }
+            catch (Exception ex)
+            {
+                InventoryErrorText.Text = "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u043f\u043e\u043b\u043d\u0438\u0442\u044c \u0441\u043a\u043b\u0430\u0434.";
+                MessageBox.Show(ex.Message, "\u041e\u0448\u0438\u0431\u043a\u0430", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void RefreshInventory_Click(object sender, RoutedEventArgs e)
+        {
+            LoadInventory();
+            LoadProducts();
+        }
+
+        private void AddInventoryItem_Click(object sender, RoutedEventArgs e)
+        {
+            InventoryErrorText.Foreground = ErrorBrush();
+            InventoryErrorText.Text = string.Empty;
+
+            string itemName = NewInventoryNameBox.Text.Trim();
+            string unitName = NewInventoryUnitBox.Text.Trim();
+
+            if (string.IsNullOrWhiteSpace(itemName) || string.IsNullOrWhiteSpace(unitName))
+            {
+                InventoryErrorText.Text = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0437\u0430\u043f\u0447\u0430\u0441\u0442\u0438 \u0438 \u0435\u0434\u0438\u043d\u0438\u0446\u0443 \u0438\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f.";
+                return;
+            }
+
+            if (!TryParseDecimal(NewInventoryQuantityBox.Text, out decimal quantity) || quantity < 0)
+            {
+                InventoryErrorText.Text = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0439 \u043d\u0430\u0447\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a.";
+                return;
+            }
+
+            if (!TryParseDecimal(NewInventoryMinQuantityBox.Text, out decimal minQuantity) || minQuantity < 0)
+            {
+                InventoryErrorText.Text = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0439 \u043c\u0438\u043d\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a.";
+                return;
+            }
+
+            try
+            {
+                InventoryService.AddInventoryItem(itemName, unitName, quantity, minQuantity);
+                ClearNewInventoryForm();
+                LoadInventory();
+                LoadProducts();
+
+                InventoryErrorText.Foreground = SuccessBrush();
+                InventoryErrorText.Text = "\u0417\u0430\u043f\u0447\u0430\u0441\u0442\u044c \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0430.";
+            }
+            catch (Exception ex)
+            {
+                InventoryErrorText.Text = "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0437\u0430\u043f\u0447\u0430\u0441\u0442\u044c.";
+                MessageBox.Show(ex.Message, "\u041e\u0448\u0438\u0431\u043a\u0430", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -325,6 +436,14 @@ namespace App_XammerGroup
             RoleBox.SelectedIndex = -1;
         }
 
+        private void ClearNewInventoryForm()
+        {
+            NewInventoryNameBox.Text = string.Empty;
+            NewInventoryUnitBox.Text = string.Empty;
+            NewInventoryQuantityBox.Text = string.Empty;
+            NewInventoryMinQuantityBox.Text = string.Empty;
+        }
+
         private static bool TryParseDecimal(string value, out decimal result)
         {
             string normalizedValue = value?.Trim();
@@ -412,6 +531,7 @@ namespace App_XammerGroup
     public enum AdminSection
     {
         Products,
+        Inventory,
         Employees
     }
 }

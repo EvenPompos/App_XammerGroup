@@ -68,6 +68,11 @@ namespace App_XammerGroup
             MainFrame.Navigate(new ReportsPage());
         }
 
+        private void Inventory_Click(object sender, RoutedEventArgs e)
+        {
+            MainFrame.Navigate(new AdminPage(_currentUser.UserId, AdminSection.Inventory));
+        }
+
         private void Admin_Click(object sender, RoutedEventArgs e)
         {
             MainFrame.Navigate(new AdminPage(_currentUser.UserId, AdminSection.Products));
@@ -90,6 +95,7 @@ namespace App_XammerGroup
                 CartButton,
                 EmployeesButton,
                 ReportsButton,
+                InventoryButton,
                 AdminButton
             };
 
@@ -101,7 +107,7 @@ namespace App_XammerGroup
             switch (_currentRole)
             {
                 case AppRole.Admin:
-                    ShowButtons(ProfileButton, OrdersButton, ProductsButton, EmployeesButton, ReportsButton, AdminButton);
+                    ShowButtons(ProfileButton, OrdersButton, ProductsButton, EmployeesButton, ReportsButton, InventoryButton, AdminButton);
                     break;
 
                 case AppRole.Manager:

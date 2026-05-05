@@ -146,6 +146,7 @@
       <DependentUpon>Model1.tt</DependentUpon>
     </Compile>
     <Compile Include="Models\CartService.cs" />
+    <Compile Include="Models\InventoryService.cs" />
     <Compile Include="Models\SalesReportPdfExporter.cs" />
     <Compile Include="Page\PlaceholderPage.cs" />
     <Page Include="LoginWindow.xaml">
@@ -252,6 +253,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="Database\WarehouseSchema.sql" />
   </ItemGroup>
   <ItemGroup>
     <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
