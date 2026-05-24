@@ -7,16 +7,15 @@
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <StackPanel Margin="0,0,0,20">
-            <TextBlock Text="PDF-отчеты"
+            <TextBlock Text="Отчеты"
                        FontSize="30"
                        FontWeight="SemiBold"
                        Foreground="#202020"/>
-            <TextBlock Text="Сводка по продажам за выбранный период и выгрузка в PDF"
+            <TextBlock Text="Отчет по продажам и отчет по складу с экспортом в PDF и Excel"
                        Margin="0,6,0,0"
                        FontSize="14"
                        Foreground="#666666"/>
@@ -26,113 +25,150 @@
                              Padding="18"
                              UniformCornerRadius="18"
                              Background="White">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.1*"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="1.1*"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="12"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+            <TabControl>
+                <TabItem Header="Продажи">
+                    <Grid Margin="0,16,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="18"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="18"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                <DatePicker x:Name="StartDatePicker"
-                            Grid.Column="0"
-                            Height="42"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.1*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="1.1*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                <DatePicker x:Name="EndDatePicker"
-                            Grid.Column="2"
-                            Height="42"/>
+                            <DatePicker x:Name="StartDatePicker"
+                                        Grid.Column="0"
+                                        Height="42"/>
 
-                <Button Grid.Column="4"
-                        Content="Обновить"
-                        Padding="16,8"
-                        Click="Refresh_Click"
-                        Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                            <DatePicker x:Name="EndDatePicker"
+                                        Grid.Column="2"
+                                        Height="42"/>
 
-                <Button Grid.Column="6"
-                        Content="Экспорт PDF"
-                        Padding="16,8"
-                        Click="ExportPdf_Click"
-                        Style="{StaticResource MaterialDesignRaisedButton}"/>
-            </Grid>
+                            <Button Grid.Column="4"
+                                    Content="Обновить"
+                                    Padding="16,8"
+                                    Click="RefreshSales_Click"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"/>
+
+                            <Button Grid.Column="6"
+                                    Content="Экспорт PDF"
+                                    Padding="16,8"
+                                    Click="ExportSalesPdf_Click"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+                        </Grid>
+
+                        <UniformGrid Grid.Row="2" Columns="3">
+                            <materialDesign:Card Padding="18" UniformCornerRadius="12" Background="#FAFAFA">
+                                <StackPanel>
+                                    <TextBlock Text="Заказы" Foreground="#666666"/>
+                                    <TextBlock x:Name="OrdersCountText" Margin="0,8,0,0" FontSize="28" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </materialDesign:Card>
+
+                            <materialDesign:Card Padding="18" UniformCornerRadius="12" Background="#FAFAFA" Margin="12,0">
+                                <StackPanel>
+                                    <TextBlock Text="Выручка" Foreground="#666666"/>
+                                    <TextBlock x:Name="RevenueText" Margin="0,8,0,0" FontSize="28" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </materialDesign:Card>
+
+                            <materialDesign:Card Padding="18" UniformCornerRadius="12" Background="#FAFAFA">
+                                <StackPanel>
+                                    <TextBlock Text="Продано позиций" Foreground="#666666"/>
+                                    <TextBlock x:Name="ItemsCountText" Margin="0,8,0,0" FontSize="28" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </materialDesign:Card>
+                        </UniformGrid>
+
+                        <DataGrid x:Name="ProductsReportGrid"
+                                  Grid.Row="4"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  RowHeight="46">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="ID" Width="70" Binding="{Binding ProductId}"/>
+                                <DataGridTextColumn Header="Товар" Width="2.2*" Binding="{Binding ProductName}"/>
+                                <DataGridTextColumn Header="Количество" Width="140" Binding="{Binding QuantitySold}"/>
+                                <DataGridTextColumn Header="Выручка" Width="160" Binding="{Binding RevenueText}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <TextBlock x:Name="SalesErrorText"
+                                   Grid.Row="5"
+                                   Margin="0,12,0,0"
+                                   Foreground="#FFB00020"
+                                   TextWrapping="Wrap"/>
+                    </Grid>
+                </TabItem>
+
+                <TabItem Header="Склад">
+                    <Grid Margin="0,16,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="18"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Обновить"
+                                    Padding="16,8"
+                                    Click="RefreshInventory_Click"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"/>
+
+                            <Button Content="Экспорт PDF"
+                                    Padding="16,8"
+                                    Margin="12,0,0,0"
+                                    Click="ExportInventoryPdf_Click"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+
+                            <Button Content="Экспорт Excel"
+                                    Padding="16,8"
+                                    Margin="12,0,0,0"
+                                    Click="ExportInventoryExcel_Click"
+                                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+                        </StackPanel>
+
+                        <DataGrid x:Name="InventoryReportGrid"
+                                  Grid.Row="2"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  IsReadOnly="True"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  RowHeight="46">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="ID" Width="70" Binding="{Binding InventoryItemId}"/>
+                                <DataGridTextColumn Header="Материал" Width="2*" Binding="{Binding ItemName}"/>
+                                <DataGridTextColumn Header="Остаток" Width="150" Binding="{Binding QuantityText}"/>
+                                <DataGridTextColumn Header="Минимум" Width="150" Binding="{Binding MinQuantityText}"/>
+                                <DataGridTextColumn Header="Статус" Width="160" Binding="{Binding StatusText}"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <TextBlock x:Name="InventoryErrorText"
+                                   Grid.Row="3"
+                                   Margin="0,12,0,0"
+                                   Foreground="#FFB00020"
+                                   TextWrapping="Wrap"/>
+                    </Grid>
+                </TabItem>
+            </TabControl>
         </materialDesign:Card>
-
-        <Grid Grid.Row="2" Margin="0,20,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="20"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-
-            <UniformGrid Columns="3">
-                <materialDesign:Card Padding="18" UniformCornerRadius="16" Background="White">
-                    <StackPanel>
-                        <TextBlock Text="Заказы"
-                                   Foreground="#666666"/>
-                        <TextBlock x:Name="OrdersCountText"
-                                   Margin="0,8,0,0"
-                                   FontSize="28"
-                                   FontWeight="SemiBold"/>
-                    </StackPanel>
-                </materialDesign:Card>
-
-                <materialDesign:Card Padding="18" UniformCornerRadius="16" Background="White" Margin="12,0">
-                    <StackPanel>
-                        <TextBlock Text="Выручка"
-                                   Foreground="#666666"/>
-                        <TextBlock x:Name="RevenueText"
-                                   Margin="0,8,0,0"
-                                   FontSize="28"
-                                   FontWeight="SemiBold"/>
-                    </StackPanel>
-                </materialDesign:Card>
-
-                <materialDesign:Card Padding="18" UniformCornerRadius="16" Background="White">
-                    <StackPanel>
-                        <TextBlock Text="Продано позиций"
-                                   Foreground="#666666"/>
-                        <TextBlock x:Name="ItemsCountText"
-                                   Margin="0,8,0,0"
-                                   FontSize="28"
-                                   FontWeight="SemiBold"/>
-                    </StackPanel>
-                </materialDesign:Card>
-            </UniformGrid>
-
-            <materialDesign:Card Grid.Row="2"
-                                 Padding="0"
-                                 UniformCornerRadius="18"
-                                 Background="White">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <DataGrid x:Name="ProductsReportGrid"
-                              AutoGenerateColumns="False"
-                              CanUserAddRows="False"
-                              IsReadOnly="True"
-                              HeadersVisibility="Column"
-                              GridLinesVisibility="Horizontal"
-                              RowHeight="46">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="ID" Width="70" Binding="{Binding ProductId}"/>
-                            <DataGridTextColumn Header="Товар" Width="2.2*" Binding="{Binding ProductName}"/>
-                            <DataGridTextColumn Header="Количество" Width="140" Binding="{Binding QuantitySold}"/>
-                            <DataGridTextColumn Header="Выручка" Width="160" Binding="{Binding RevenueText}"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-
-                    <TextBlock x:Name="ErrorText"
-                               Grid.Row="1"
-                               Margin="18,12,18,18"
-                               Foreground="#FFB00020"
-                               TextWrapping="Wrap"/>
-                </Grid>
-            </materialDesign:Card>
-        </Grid>
     </Grid>
 </Page>

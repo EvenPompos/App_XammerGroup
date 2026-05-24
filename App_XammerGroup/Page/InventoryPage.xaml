@@ -1,0 +1,157 @@
+<Page x:Class="App_XammerGroup.InventoryPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+      Background="#F5F5F5">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Margin="0,0,0,20">
+            <TextBlock Text="Склад"
+                       FontSize="30"
+                       FontWeight="SemiBold"
+                       Foreground="#202020"/>
+            <TextBlock Text="Редактирование остатков, минимальных значений и пополнение материалов"
+                       Margin="0,6,0,0"
+                       FontSize="14"
+                       Foreground="#666666"/>
+        </StackPanel>
+
+        <materialDesign:Card Grid.Row="1"
+                             Padding="18"
+                             UniformCornerRadius="18"
+                             Background="White">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="1.1*"/>
+                </Grid.ColumnDefinitions>
+
+                <DataGrid x:Name="InventoryGrid"
+                          AutoGenerateColumns="False"
+                          CanUserAddRows="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          RowHeight="46"
+                          SelectionChanged="InventoryGrid_SelectionChanged">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="ID" Width="70" Binding="{Binding InventoryItemId}"/>
+                        <DataGridTextColumn Header="Материал" Width="2*" Binding="{Binding ItemName}"/>
+                        <DataGridTextColumn Header="Остаток" Width="150" Binding="{Binding QuantityText}"/>
+                        <DataGridTextColumn Header="Минимум" Width="150" Binding="{Binding MinQuantityText}"/>
+                        <DataGridTextColumn Header="Статус" Width="160" Binding="{Binding StatusText}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <ScrollViewer Grid.Column="2"
+                              VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Карточка материала"
+                                   FontWeight="SemiBold"
+                                   Foreground="#202020"/>
+
+                        <TextBox x:Name="ItemNameBox"
+                                 Margin="0,12,0,10"
+                                 Height="42"
+                                 materialDesign:HintAssist.Hint="Название"/>
+
+                        <TextBox x:Name="UnitNameBox"
+                                 Margin="0,0,0,10"
+                                 Height="42"
+                                 materialDesign:HintAssist.Hint="Единица измерения"/>
+
+                        <TextBox x:Name="QuantityOnHandBox"
+                                 Margin="0,0,0,10"
+                                 Height="42"
+                                 materialDesign:HintAssist.Hint="Остаток"/>
+
+                        <TextBox x:Name="MinQuantityBox"
+                                 Margin="0,0,0,10"
+                                 Height="42"
+                                 materialDesign:HintAssist.Hint="Минимум"/>
+
+                        <Button Content="Сохранить остатки"
+                                Height="42"
+                                Margin="0,8,0,0"
+                                Click="SaveInventoryItem_Click"
+                                Style="{StaticResource MaterialDesignRaisedButton}"/>
+
+                        <Separator Margin="0,20,0,18"/>
+
+                        <TextBlock Text="Пополнение выбранной позиции"
+                                   FontWeight="SemiBold"
+                                   Foreground="#202020"/>
+
+                        <TextBox x:Name="AddQuantityBox"
+                                 Margin="0,12,0,10"
+                                 Height="42"
+                                 materialDesign:HintAssist.Hint="Количество"/>
+
+                        <TextBox x:Name="CommentBox"
+                                 Margin="0,0,0,10"
+                                 Height="84"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto"
+                                 materialDesign:HintAssist.Hint="Комментарий"/>
+
+                        <Button Content="Пополнить выбранный материал"
+                                Height="42"
+                                Margin="0,8,0,0"
+                                Click="AddStock_Click"
+                                Style="{StaticResource MaterialDesignRaisedButton}"/>
+
+                        <Separator Margin="0,20,0,18"/>
+
+                        <TextBlock Text="Новая позиция"
+                                   FontWeight="SemiBold"
+                                   Foreground="#202020"/>
+
+                        <TextBox x:Name="NewItemNameBox"
+                                 Margin="0,12,0,10"
+                                 Height="42"
+                                 materialDesign:HintAssist.Hint="Название"/>
+
+                        <TextBox x:Name="NewUnitNameBox"
+                                 Margin="0,0,0,10"
+                                 Height="42"
+                                 materialDesign:HintAssist.Hint="Единица измерения"/>
+
+                        <TextBox x:Name="NewQuantityBox"
+                                 Margin="0,0,0,10"
+                                 Height="42"
+                                 materialDesign:HintAssist.Hint="Начальный остаток"/>
+
+                        <TextBox x:Name="NewMinQuantityBox"
+                                 Margin="0,0,0,10"
+                                 Height="42"
+                                 materialDesign:HintAssist.Hint="Минимальный остаток"/>
+
+                        <TextBlock x:Name="ErrorText"
+                                   Foreground="#FFB00020"
+                                   TextWrapping="Wrap"
+                                   Margin="0,8,0,0"/>
+
+                        <Button Content="Добавить позицию"
+                                Height="42"
+                                Margin="0,18,0,0"
+                                Click="AddInventoryItem_Click"
+                                Style="{StaticResource MaterialDesignRaisedButton}"/>
+
+                        <Button Content="Обновить склад"
+                                Height="42"
+                                Margin="0,10,0,0"
+                                Click="Refresh_Click"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </materialDesign:Card>
+    </Grid>
+</Page>

@@ -6,8 +6,15 @@ BEGIN
         ItemName nvarchar(150) NOT NULL,
         UnitName nvarchar(30) NOT NULL,
         QuantityOnHand decimal(12, 3) NOT NULL CONSTRAINT DF_InventoryItems_QuantityOnHand DEFAULT 0,
-        MinQuantity decimal(12, 3) NOT NULL CONSTRAINT DF_InventoryItems_MinQuantity DEFAULT 0
+        MinQuantity decimal(12, 3) NOT NULL CONSTRAINT DF_InventoryItems_MinQuantity DEFAULT 0,
+        IsActive bit NOT NULL CONSTRAINT DF_InventoryItems_IsActive DEFAULT 1
     );
+END;
+
+IF COL_LENGTH(N'dbo.InventoryItems', N'IsActive') IS NULL
+BEGIN
+    ALTER TABLE dbo.InventoryItems
+    ADD IsActive bit NOT NULL CONSTRAINT DF_InventoryItems_IsActive DEFAULT 1;
 END;
 
 IF OBJECT_ID(N'dbo.ProductMaterials', N'U') IS NULL

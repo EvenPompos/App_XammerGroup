@@ -10,12 +10,12 @@ namespace App_XammerGroup
 {
     public partial class ReportsPage : Page
     {
-        private SalesReportData _currentReport;
+        private SalesReportData _currentSalesReport;
+        private InventoryReportData _currentInventoryReport;
 
         public ReportsPage()
         {
             InitializeComponent();
-
             Loaded += ReportsPage_Loaded;
         }
 
@@ -23,60 +23,136 @@ namespace App_XammerGroup
         {
             EndDatePicker.SelectedDate = DateTime.Today;
             StartDatePicker.SelectedDate = DateTime.Today.AddMonths(-1);
-            LoadReport();
+            LoadSalesReport();
+            LoadInventoryReport();
         }
 
-        private void Refresh_Click(object sender, RoutedEventArgs e)
+        private void RefreshSales_Click(object sender, RoutedEventArgs e)
         {
-            LoadReport();
+            LoadSalesReport();
         }
 
-        private void ExportPdf_Click(object sender, RoutedEventArgs e)
+        private void RefreshInventory_Click(object sender, RoutedEventArgs e)
         {
-            ErrorText.Foreground = ErrorBrush();
-            ErrorText.Text = string.Empty;
+            LoadInventoryReport();
+        }
 
-            if (_currentReport == null)
+        private void ExportSalesPdf_Click(object sender, RoutedEventArgs e)
+        {
+            SalesErrorText.Foreground = ErrorBrush();
+            SalesErrorText.Text = string.Empty;
+
+            if (_currentSalesReport == null)
             {
-                ErrorText.Text = "Сначала сформируйте отчет.";
+                SalesErrorText.Text = "Сначала сформируйте отчет по продажам.";
                 return;
             }
 
             var dialog = new SaveFileDialog
             {
-                Title = "Сохранение отчета",
+                Title = "Сохранение отчета по продажам",
                 Filter = "PDF files|*.pdf",
-                FileName = $"sales_report_{_currentReport.StartDate:yyyyMMdd}_{_currentReport.EndDate:yyyyMMdd}.pdf"
+                FileName = $"Отчет_по_продажам_{_currentSalesReport.StartDate:yyyyMMdd}_{_currentSalesReport.EndDate:yyyyMMdd}.pdf"
             };
 
-            bool? result = dialog.ShowDialog();
-            if (result != true)
+            if (dialog.ShowDialog() != true)
             {
                 return;
             }
 
             try
             {
-                SalesReportPdfExporter.Export(dialog.FileName, _currentReport);
-                ErrorText.Foreground = SuccessBrush();
-                ErrorText.Text = $"PDF-отчет сохранен: {dialog.FileName}";
+                SalesReportPdfExporter.Export(dialog.FileName, _currentSalesReport);
+                SalesErrorText.Foreground = SuccessBrush();
+                SalesErrorText.Text = $"PDF-отчет сохранен: {dialog.FileName}";
             }
             catch (Exception ex)
             {
-                ErrorText.Foreground = ErrorBrush();
-                ErrorText.Text = "Не удалось сохранить PDF-отчет.";
+                SalesErrorText.Text = "Не удалось сохранить PDF-отчет.";
                 MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private void LoadReport()
+        private void ExportInventoryPdf_Click(object sender, RoutedEventArgs e)
         {
-            ErrorText.Foreground = ErrorBrush();
-            ErrorText.Text = string.Empty;
+            InventoryErrorText.Foreground = ErrorBrush();
+            InventoryErrorText.Text = string.Empty;
+
+            if (_currentInventoryReport == null)
+            {
+                InventoryErrorText.Text = "Сначала сформируйте отчет по складу.";
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Сохранение отчета по складу",
+                Filter = "PDF files|*.pdf",
+                FileName = $"Отчет_по_складу_{DateTime.Today:yyyyMMdd}.pdf"
+            };
+
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            try
+            {
+                SalesReportPdfExporter.ExportInventoryPdf(dialog.FileName, _currentInventoryReport);
+                InventoryErrorText.Foreground = SuccessBrush();
+                InventoryErrorText.Text = $"PDF-отчет сохранен: {dialog.FileName}";
+            }
+            catch (Exception ex)
+            {
+                InventoryErrorText.Text = "Не удалось сохранить PDF-отчет по складу.";
+                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void ExportInventoryExcel_Click(object sender, RoutedEventArgs e)
+        {
+            InventoryErrorText.Foreground = ErrorBrush();
+            InventoryErrorText.Text = string.Empty;
+
+            if (_currentInventoryReport == null)
+            {
+                InventoryErrorText.Text = "Сначала сформируйте отчет по складу.";
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Title = "Сохранение отчета по складу",
+                Filter = "Excel 2003 XML|*.xls",
+                FileName = $"Отчет_по_складу_{DateTime.Today:yyyyMMdd}.xls"
+            };
+
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            try
+            {
+                SalesReportPdfExporter.ExportInventoryExcel(dialog.FileName, _currentInventoryReport);
+                InventoryErrorText.Foreground = SuccessBrush();
+                InventoryErrorText.Text = $"Excel-отчет сохранен: {dialog.FileName}";
+            }
+            catch (Exception ex)
+            {
+                InventoryErrorText.Text = "Не удалось сохранить Excel-отчет по складу.";
+                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void LoadSalesReport()
+        {
+            SalesErrorText.Foreground = ErrorBrush();
+            SalesErrorText.Text = string.Empty;
 
             if (!StartDatePicker.SelectedDate.HasValue || !EndDatePicker.SelectedDate.HasValue)
             {
-                ErrorText.Text = "Выберите начальную и конечную дату.";
+                SalesErrorText.Text = "Выберите начальную и конечную дату.";
                 return;
             }
 
@@ -85,7 +161,7 @@ namespace App_XammerGroup
 
             if (startDate > endDate)
             {
-                ErrorText.Text = "Начальная дата не может быть больше конечной.";
+                SalesErrorText.Text = "Начальная дата не может быть больше конечной.";
                 return;
             }
 
@@ -104,7 +180,7 @@ namespace App_XammerGroup
 
                 var products = db.Products.ToList();
 
-                _currentReport = new SalesReportData
+                _currentSalesReport = new SalesReportData
                 {
                     StartDate = startDate,
                     EndDate = endDate,
@@ -130,11 +206,11 @@ namespace App_XammerGroup
                 };
             }
 
-            OrdersCountText.Text = _currentReport.OrdersCount.ToString(CultureInfo.InvariantCulture);
-            RevenueText.Text = $"{_currentReport.TotalRevenue:N2} руб.";
-            ItemsCountText.Text = _currentReport.Products.Sum(item => item.QuantitySold).ToString(CultureInfo.InvariantCulture);
+            OrdersCountText.Text = _currentSalesReport.OrdersCount.ToString(CultureInfo.InvariantCulture);
+            RevenueText.Text = $"{_currentSalesReport.TotalRevenue:N2} руб.";
+            ItemsCountText.Text = _currentSalesReport.Products.Sum(item => item.QuantitySold).ToString(CultureInfo.InvariantCulture);
 
-            ProductsReportGrid.ItemsSource = _currentReport.Products
+            ProductsReportGrid.ItemsSource = _currentSalesReport.Products
                 .Select(item => new ProductReportRow
                 {
                     ProductId = item.ProductId,
@@ -144,9 +220,38 @@ namespace App_XammerGroup
                 })
                 .ToList();
 
-            if (_currentReport.Products.Count == 0)
+            if (_currentSalesReport.Products.Count == 0)
             {
-                ErrorText.Text = "За выбранный период продаж не найдено.";
+                SalesErrorText.Text = "За выбранный период продаж не найдено.";
+            }
+        }
+
+        private void LoadInventoryReport()
+        {
+            InventoryErrorText.Foreground = ErrorBrush();
+            InventoryErrorText.Text = string.Empty;
+
+            var items = InventoryService.GetInventoryRows();
+            _currentInventoryReport = new InventoryReportData
+            {
+                CreatedAt = DateTime.Now,
+                Items = items
+                    .Select(item => new InventoryReportLine
+                    {
+                        InventoryItemId = item.InventoryItemId,
+                        ItemName = item.ItemName,
+                        UnitName = item.UnitName,
+                        QuantityOnHand = item.QuantityOnHand,
+                        MinQuantity = item.MinQuantity,
+                        StatusText = item.StatusText
+                    })
+                    .ToList()
+            };
+
+            InventoryReportGrid.ItemsSource = items;
+            if (items.Count == 0)
+            {
+                InventoryErrorText.Text = "Складские позиции не найдены.";
             }
         }
 

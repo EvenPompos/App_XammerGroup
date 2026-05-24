@@ -1,5 +1,5 @@
 using System;
-using System.Collections.Generic;
+using System.Data.Entity;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.Linq;
@@ -13,39 +13,39 @@ namespace App_XammerGroup
     public partial class AdminPage : Page
     {
         private readonly int _currentUserId;
+        private readonly bool _canManageEmployees;
 
-        public AdminPage(int currentUserId, AdminSection initialSection)
+        public AdminPage(int currentUserId, AdminSection initialSection, bool canManageEmployees = true)
         {
             InitializeComponent();
 
             _currentUserId = currentUserId;
+            _canManageEmployees = canManageEmployees;
 
             Loaded += (sender, args) =>
             {
+                if (!_canManageEmployees && AdminTabs.Items.Contains(EmployeesTab))
+                {
+                    AdminTabs.Items.Remove(EmployeesTab);
+                }
+
                 LoadRoles();
                 LoadProducts();
-                LoadInventory();
-                LoadEmployees();
+                LoadMaterialItems();
+                if (_canManageEmployees)
+                {
+                    LoadEmployees();
+                }
                 SelectSection(initialSection);
             };
         }
 
         private void SelectSection(AdminSection section)
         {
-            switch (section)
-            {
-                case AdminSection.Employees:
-                    AdminTabs.SelectedItem = EmployeesTab;
-                    break;
-
-                case AdminSection.Inventory:
-                    AdminTabs.SelectedItem = InventoryTab;
-                    break;
-
-                default:
-                    AdminTabs.SelectedItem = ProductsTab;
-                    break;
-            }
+            AdminTabs.SelectedItem = section == AdminSection.Employees
+                && _canManageEmployees
+                ? EmployeesTab
+                : ProductsTab;
         }
 
         private void LoadRoles()
@@ -77,16 +77,25 @@ namespace App_XammerGroup
                     {
                         ProductId = product.ProductId,
                         ProductName = product.ProductName,
+                        Description = product.Description,
                         Price = product.Price,
+                        ImagePath = product.ImagePath,
                         IsActive = product.IsActive ?? false
                     })
                     .ToList();
             }
         }
 
-        private void LoadInventory()
+        private void LoadMaterialItems()
         {
-            InventoryGrid.ItemsSource = InventoryService.GetInventoryRows();
+            MaterialItemBox.ItemsSource = InventoryService.GetInventoryRows();
+            MaterialItemBox.DisplayMemberPath = nameof(InventoryRow.ItemName);
+            MaterialItemBox.SelectedValuePath = nameof(InventoryRow.InventoryItemId);
+        }
+
+        private void LoadProductMaterials(int productId)
+        {
+            ProductMaterialsGrid.ItemsSource = InventoryService.GetProductMaterialRows(productId);
         }
 
         private void LoadEmployees()
@@ -94,24 +103,74 @@ namespace App_XammerGroup
             using (var db = new DB_Xammer_groupEntities())
             {
                 EmployeesGrid.ItemsSource = db.Users
+                    .Include(user => user.Roles)
                     .ToList()
-                    .Join(
-                        db.Roles.ToList(),
-                        user => user.RoleId,
-                        role => role.RoleId,
-                        (user, role) => new { user, role })
-                    .Where(item => !IsClientRole(item.role.RoleName))
-                    .OrderBy(item => item.user.LastName)
-                    .ThenBy(item => item.user.FirstName)
-                    .Select(item => new EmployeeRow
+                    .Where(user => !IsClientRole(user.Roles?.RoleName))
+                    .OrderBy(user => user.LastName)
+                    .ThenBy(user => user.FirstName)
+                    .Select(user => new EmployeeRow
                     {
-                        UserId = item.user.UserId,
-                        FullName = BuildFullName(item.user),
-                        Email = item.user.Email,
-                        RoleName = item.role.RoleName
+                        UserId = user.UserId,
+                        LastName = user.LastName,
+                        FirstName = user.FirstName,
+                        MiddleName = user.MiddleName,
+                        Phone = user.Phone,
+                        Email = user.Email,
+                        Password = user.Password,
+                        RoleId = user.RoleId,
+                        RoleName = user.Roles?.RoleName,
+                        FullName = BuildFullName(user)
                     })
                     .ToList();
             }
+        }
+
+        private void ProductsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var product = ProductsGrid.SelectedItem as ProductRow;
+            if (product == null)
+            {
+                ClearProductForm();
+                ProductMaterialsGrid.ItemsSource = null;
+                return;
+            }
+
+            ProductNameBox.Text = product.ProductName ?? string.Empty;
+            ProductDescriptionBox.Text = product.Description ?? string.Empty;
+            ProductPriceBox.Text = product.Price.ToString(CultureInfo.CurrentCulture);
+            ProductImagePathBox.Text = product.ImagePath ?? string.Empty;
+            ProductIsActiveBox.IsChecked = product.IsActive;
+            LoadProductMaterials(product.ProductId);
+        }
+
+        private void ProductMaterialsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var material = ProductMaterialsGrid.SelectedItem as ProductMaterialRow;
+            if (material == null)
+            {
+                return;
+            }
+
+            MaterialItemBox.SelectedValue = material.InventoryItemId;
+            MaterialQuantityBox.Text = material.Quantity.ToString(CultureInfo.CurrentCulture);
+        }
+
+        private void EmployeesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            var employee = EmployeesGrid.SelectedItem as EmployeeRow;
+            if (employee == null)
+            {
+                ClearEmployeeForm();
+                return;
+            }
+
+            LastNameBox.Text = employee.LastName ?? string.Empty;
+            FirstNameBox.Text = employee.FirstName ?? string.Empty;
+            MiddleNameBox.Text = employee.MiddleName ?? string.Empty;
+            PhoneBox.Text = employee.Phone ?? string.Empty;
+            EmailBox.Text = employee.Email ?? string.Empty;
+            PasswordBox.Password = employee.Password ?? string.Empty;
+            RoleBox.SelectedValue = employee.RoleId;
         }
 
         private void AddProduct_Click(object sender, RoutedEventArgs e)
@@ -119,15 +178,8 @@ namespace App_XammerGroup
             ProductsErrorText.Foreground = ErrorBrush();
             ProductsErrorText.Text = string.Empty;
 
-            if (string.IsNullOrWhiteSpace(ProductNameBox.Text))
+            if (!TryReadProductForm(out string name, out string description, out decimal price, out string imagePath, out bool isActive))
             {
-                ProductsErrorText.Text = "Введите название товара.";
-                return;
-            }
-
-            if (!TryParseDecimal(ProductPriceBox.Text, out decimal price) || price < 0)
-            {
-                ProductsErrorText.Text = "Введите корректную цену.";
                 return;
             }
 
@@ -137,11 +189,11 @@ namespace App_XammerGroup
                 {
                     db.Products.Add(new Products
                     {
-                        ProductName = ProductNameBox.Text.Trim(),
-                        Description = NormalizeText(ProductDescriptionBox.Text),
+                        ProductName = name,
+                        Description = description,
                         Price = price,
-                        ImagePath = NormalizeText(ProductImagePathBox.Text),
-                        IsActive = ProductIsActiveBox.IsChecked ?? false
+                        ImagePath = imagePath,
+                        IsActive = isActive
                     });
 
                     db.SaveChanges();
@@ -155,6 +207,53 @@ namespace App_XammerGroup
             catch (Exception ex)
             {
                 ProductsErrorText.Text = "Не удалось добавить товар.";
+                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void UpdateProduct_Click(object sender, RoutedEventArgs e)
+        {
+            ProductsErrorText.Foreground = ErrorBrush();
+            ProductsErrorText.Text = string.Empty;
+
+            var selectedProduct = ProductsGrid.SelectedItem as ProductRow;
+            if (selectedProduct == null)
+            {
+                ProductsErrorText.Text = "Выберите товар для редактирования.";
+                return;
+            }
+
+            if (!TryReadProductForm(out string name, out string description, out decimal price, out string imagePath, out bool isActive))
+            {
+                return;
+            }
+
+            try
+            {
+                using (var db = new DB_Xammer_groupEntities())
+                {
+                    var product = db.Products.FirstOrDefault(item => item.ProductId == selectedProduct.ProductId);
+                    if (product == null)
+                    {
+                        ProductsErrorText.Text = "Товар не найден.";
+                        return;
+                    }
+
+                    product.ProductName = name;
+                    product.Description = description;
+                    product.Price = price;
+                    product.ImagePath = imagePath;
+                    product.IsActive = isActive;
+                    db.SaveChanges();
+                }
+
+                LoadProducts();
+                ProductsErrorText.Foreground = SuccessBrush();
+                ProductsErrorText.Text = "Изменения товара сохранены.";
+            }
+            catch (Exception ex)
+            {
+                ProductsErrorText.Text = "Не удалось сохранить товар.";
                 MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -183,23 +282,26 @@ namespace App_XammerGroup
                     }
 
                     bool hasItems = db.OrderItems.Any(item => item.ProductId == product.ProductId);
-                    bool hasRecipe = db.Database.SqlQuery<int>(
-                        "SELECT COUNT(1) FROM dbo.ProductMaterials WHERE ProductId = @productId",
-                        new SqlParameter("@productId", product.ProductId)).Single() > 0;
-
-                    if (hasItems || hasRecipe)
+                    if (hasItems)
                     {
-                        ProductsErrorText.Text = "\u041d\u0435\u043b\u044c\u0437\u044f \u0443\u0434\u0430\u043b\u0438\u0442\u044c \u0442\u043e\u0432\u0430\u0440, \u043a\u043e\u0442\u043e\u0440\u044b\u0439 \u0443\u0436\u0435 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u0442\u0441\u044f \u0432 \u0437\u0430\u043a\u0430\u0437\u0430\u0445 \u0438\u043b\u0438 \u0441\u043f\u0435\u0446\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u0438.";
-                        return;
+                        entity.IsActive = false;
+                    }
+                    else
+                    {
+                        db.Database.ExecuteSqlCommand(
+                            "DELETE FROM dbo.ProductMaterials WHERE ProductId = @productId",
+                            new SqlParameter("@productId", product.ProductId));
+                        db.Products.Remove(entity);
                     }
 
-                    db.Products.Remove(entity);
                     db.SaveChanges();
                 }
 
+                ClearProductForm();
+                ProductMaterialsGrid.ItemsSource = null;
                 LoadProducts();
                 ProductsErrorText.Foreground = SuccessBrush();
-                ProductsErrorText.Text = "Товар удален.";
+                ProductsErrorText.Text = "Товар удален или скрыт, если уже использовался в заказах.";
             }
             catch (Exception ex)
             {
@@ -208,88 +310,69 @@ namespace App_XammerGroup
             }
         }
 
-        private void AddInventory_Click(object sender, RoutedEventArgs e)
+        private void SaveMaterial_Click(object sender, RoutedEventArgs e)
         {
-            InventoryErrorText.Foreground = ErrorBrush();
-            InventoryErrorText.Text = string.Empty;
+            ProductsErrorText.Foreground = ErrorBrush();
+            ProductsErrorText.Text = string.Empty;
 
-            var selectedItem = InventoryGrid.SelectedItem as InventoryRow;
-            if (selectedItem == null)
+            var product = ProductsGrid.SelectedItem as ProductRow;
+            if (product == null)
             {
-                InventoryErrorText.Text = "\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u043c\u0430\u0442\u0435\u0440\u0438\u0430\u043b \u0434\u043b\u044f \u043f\u043e\u043f\u043e\u043b\u043d\u0435\u043d\u0438\u044f.";
+                ProductsErrorText.Text = "Выберите товар для настройки состава.";
                 return;
             }
 
-            if (!TryParseDecimal(InventoryQuantityBox.Text, out decimal quantity) || quantity <= 0)
+            if (!(MaterialItemBox.SelectedValue is int inventoryItemId))
             {
-                InventoryErrorText.Text = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043f\u043e\u043b\u043e\u0436\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0435 \u043a\u043e\u043b\u0438\u0447\u0435\u0441\u0442\u0432\u043e.";
+                ProductsErrorText.Text = "Выберите деталь со склада.";
+                return;
+            }
+
+            if (!TryParseDecimal(MaterialQuantityBox.Text, out decimal quantity) || quantity <= 0)
+            {
+                ProductsErrorText.Text = "Введите положительное количество списания.";
                 return;
             }
 
             try
             {
-                InventoryService.AddStock(selectedItem.InventoryItemId, quantity, NormalizeText(InventoryCommentBox.Text));
-                InventoryQuantityBox.Text = string.Empty;
-                InventoryCommentBox.Text = string.Empty;
-                LoadInventory();
-                LoadProducts();
-
-                InventoryErrorText.Foreground = SuccessBrush();
-                InventoryErrorText.Text = "\u0421\u043a\u043b\u0430\u0434 \u043f\u043e\u043f\u043e\u043b\u043d\u0435\u043d.";
+                InventoryService.SaveProductMaterial(product.ProductId, inventoryItemId, quantity);
+                LoadProductMaterials(product.ProductId);
+                ProductsErrorText.Foreground = SuccessBrush();
+                ProductsErrorText.Text = "Состав товара сохранен.";
             }
             catch (Exception ex)
             {
-                InventoryErrorText.Text = "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u043f\u043e\u043b\u043d\u0438\u0442\u044c \u0441\u043a\u043b\u0430\u0434.";
-                MessageBox.Show(ex.Message, "\u041e\u0448\u0438\u0431\u043a\u0430", MessageBoxButton.OK, MessageBoxImage.Error);
+                ProductsErrorText.Text = "Не удалось сохранить состав товара.";
+                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
-        private void RefreshInventory_Click(object sender, RoutedEventArgs e)
+        private void DeleteMaterial_Click(object sender, RoutedEventArgs e)
         {
-            LoadInventory();
-            LoadProducts();
-        }
+            ProductsErrorText.Foreground = ErrorBrush();
+            ProductsErrorText.Text = string.Empty;
 
-        private void AddInventoryItem_Click(object sender, RoutedEventArgs e)
-        {
-            InventoryErrorText.Foreground = ErrorBrush();
-            InventoryErrorText.Text = string.Empty;
-
-            string itemName = NewInventoryNameBox.Text.Trim();
-            string unitName = NewInventoryUnitBox.Text.Trim();
-
-            if (string.IsNullOrWhiteSpace(itemName) || string.IsNullOrWhiteSpace(unitName))
+            var product = ProductsGrid.SelectedItem as ProductRow;
+            var material = ProductMaterialsGrid.SelectedItem as ProductMaterialRow;
+            if (product == null || material == null)
             {
-                InventoryErrorText.Text = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0437\u0430\u043f\u0447\u0430\u0441\u0442\u0438 \u0438 \u0435\u0434\u0438\u043d\u0438\u0446\u0443 \u0438\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f.";
-                return;
-            }
-
-            if (!TryParseDecimal(NewInventoryQuantityBox.Text, out decimal quantity) || quantity < 0)
-            {
-                InventoryErrorText.Text = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0439 \u043d\u0430\u0447\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a.";
-                return;
-            }
-
-            if (!TryParseDecimal(NewInventoryMinQuantityBox.Text, out decimal minQuantity) || minQuantity < 0)
-            {
-                InventoryErrorText.Text = "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0439 \u043c\u0438\u043d\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0441\u0442\u0430\u0442\u043e\u043a.";
+                ProductsErrorText.Text = "Выберите строку состава для удаления.";
                 return;
             }
 
             try
             {
-                InventoryService.AddInventoryItem(itemName, unitName, quantity, minQuantity);
-                ClearNewInventoryForm();
-                LoadInventory();
-                LoadProducts();
-
-                InventoryErrorText.Foreground = SuccessBrush();
-                InventoryErrorText.Text = "\u0417\u0430\u043f\u0447\u0430\u0441\u0442\u044c \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0430.";
+                InventoryService.DeleteProductMaterial(material.ProductMaterialId);
+                LoadProductMaterials(product.ProductId);
+                MaterialQuantityBox.Text = string.Empty;
+                ProductsErrorText.Foreground = SuccessBrush();
+                ProductsErrorText.Text = "Деталь удалена из состава товара.";
             }
             catch (Exception ex)
             {
-                InventoryErrorText.Text = "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0437\u0430\u043f\u0447\u0430\u0441\u0442\u044c.";
-                MessageBox.Show(ex.Message, "\u041e\u0448\u0438\u0431\u043a\u0430", MessageBoxButton.OK, MessageBoxImage.Error);
+                ProductsErrorText.Text = "Не удалось удалить деталь из состава.";
+                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -298,31 +381,8 @@ namespace App_XammerGroup
             EmployeesErrorText.Foreground = ErrorBrush();
             EmployeesErrorText.Text = string.Empty;
 
-            string lastName = LastNameBox.Text.Trim();
-            string firstName = FirstNameBox.Text.Trim();
-            string phone = PhoneBox.Text.Trim();
-            string email = EmailBox.Text.Trim();
-            string password = PasswordBox.Password.Trim();
-
-            if (string.IsNullOrWhiteSpace(lastName) ||
-                string.IsNullOrWhiteSpace(firstName) ||
-                string.IsNullOrWhiteSpace(phone) ||
-                string.IsNullOrWhiteSpace(email) ||
-                string.IsNullOrWhiteSpace(password))
+            if (!TryReadEmployeeForm(out string lastName, out string firstName, out string middleName, out string phone, out string email, out string password, out int roleId))
             {
-                EmployeesErrorText.Text = "Заполните фамилию, имя, телефон, email и пароль.";
-                return;
-            }
-
-            if (!IsValidEmail(email))
-            {
-                EmployeesErrorText.Text = "Введите корректный email.";
-                return;
-            }
-
-            if (!(RoleBox.SelectedValue is int roleId))
-            {
-                EmployeesErrorText.Text = "Выберите роль сотрудника.";
                 return;
             }
 
@@ -330,8 +390,7 @@ namespace App_XammerGroup
             {
                 using (var db = new DB_Xammer_groupEntities())
                 {
-                    bool emailExists = db.Users.Any(user => user.Email == email);
-                    if (emailExists)
+                    if (db.Users.Any(user => user.Email == email))
                     {
                         EmployeesErrorText.Text = "Пользователь с таким email уже существует.";
                         return;
@@ -341,7 +400,7 @@ namespace App_XammerGroup
                     {
                         LastName = lastName,
                         FirstName = firstName,
-                        MiddleName = NormalizeText(MiddleNameBox.Text),
+                        MiddleName = middleName,
                         Phone = phone,
                         Email = email,
                         Password = password,
@@ -360,6 +419,61 @@ namespace App_XammerGroup
             catch (Exception ex)
             {
                 EmployeesErrorText.Text = "Не удалось добавить сотрудника.";
+                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void UpdateEmployee_Click(object sender, RoutedEventArgs e)
+        {
+            EmployeesErrorText.Foreground = ErrorBrush();
+            EmployeesErrorText.Text = string.Empty;
+
+            var selectedEmployee = EmployeesGrid.SelectedItem as EmployeeRow;
+            if (selectedEmployee == null)
+            {
+                EmployeesErrorText.Text = "Выберите сотрудника для редактирования.";
+                return;
+            }
+
+            if (!TryReadEmployeeForm(out string lastName, out string firstName, out string middleName, out string phone, out string email, out string password, out int roleId))
+            {
+                return;
+            }
+
+            try
+            {
+                using (var db = new DB_Xammer_groupEntities())
+                {
+                    var user = db.Users.FirstOrDefault(item => item.UserId == selectedEmployee.UserId);
+                    if (user == null)
+                    {
+                        EmployeesErrorText.Text = "Сотрудник не найден.";
+                        return;
+                    }
+
+                    if (db.Users.Any(item => item.UserId != selectedEmployee.UserId && item.Email == email))
+                    {
+                        EmployeesErrorText.Text = "Пользователь с таким email уже существует.";
+                        return;
+                    }
+
+                    user.LastName = lastName;
+                    user.FirstName = firstName;
+                    user.MiddleName = middleName;
+                    user.Phone = phone;
+                    user.Email = email;
+                    user.Password = password;
+                    user.RoleId = roleId;
+                    db.SaveChanges();
+                }
+
+                LoadEmployees();
+                EmployeesErrorText.Foreground = SuccessBrush();
+                EmployeesErrorText.Text = "Изменения сотрудника сохранены.";
+            }
+            catch (Exception ex)
+            {
+                EmployeesErrorText.Text = "Не удалось сохранить сотрудника.";
                 MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -405,6 +519,7 @@ namespace App_XammerGroup
                     db.SaveChanges();
                 }
 
+                ClearEmployeeForm();
                 LoadEmployees();
                 EmployeesErrorText.Foreground = SuccessBrush();
                 EmployeesErrorText.Text = "Сотрудник удален.";
@@ -416,6 +531,72 @@ namespace App_XammerGroup
             }
         }
 
+        private bool TryReadProductForm(out string name, out string description, out decimal price, out string imagePath, out bool isActive)
+        {
+            name = ProductNameBox.Text.Trim();
+            description = NormalizeText(ProductDescriptionBox.Text);
+            imagePath = NormalizeText(ProductImagePathBox.Text);
+            isActive = ProductIsActiveBox.IsChecked ?? false;
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                price = 0;
+                ProductsErrorText.Text = "Введите название товара.";
+                return false;
+            }
+
+            if (!TryParseDecimal(ProductPriceBox.Text, out price) || price < 0)
+            {
+                ProductsErrorText.Text = "Введите корректную цену.";
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryReadEmployeeForm(
+            out string lastName,
+            out string firstName,
+            out string middleName,
+            out string phone,
+            out string email,
+            out string password,
+            out int roleId)
+        {
+            lastName = LastNameBox.Text.Trim();
+            firstName = FirstNameBox.Text.Trim();
+            middleName = NormalizeText(MiddleNameBox.Text);
+            phone = PhoneBox.Text.Trim();
+            email = EmailBox.Text.Trim();
+            password = PasswordBox.Password.Trim();
+            roleId = 0;
+
+            if (string.IsNullOrWhiteSpace(lastName) ||
+                string.IsNullOrWhiteSpace(firstName) ||
+                string.IsNullOrWhiteSpace(phone) ||
+                string.IsNullOrWhiteSpace(email) ||
+                string.IsNullOrWhiteSpace(password))
+            {
+                EmployeesErrorText.Text = "Заполните фамилию, имя, телефон, email и пароль.";
+                return false;
+            }
+
+            if (!IsValidEmail(email))
+            {
+                EmployeesErrorText.Text = "Введите корректный email.";
+                return false;
+            }
+
+            if (!(RoleBox.SelectedValue is int selectedRoleId))
+            {
+                EmployeesErrorText.Text = "Выберите роль сотрудника.";
+                return false;
+            }
+
+            roleId = selectedRoleId;
+            return true;
+        }
+
         private void ClearProductForm()
         {
             ProductNameBox.Text = string.Empty;
@@ -423,6 +604,8 @@ namespace App_XammerGroup
             ProductPriceBox.Text = string.Empty;
             ProductImagePathBox.Text = string.Empty;
             ProductIsActiveBox.IsChecked = true;
+            MaterialItemBox.SelectedIndex = -1;
+            MaterialQuantityBox.Text = string.Empty;
         }
 
         private void ClearEmployeeForm()
@@ -434,14 +617,6 @@ namespace App_XammerGroup
             EmailBox.Text = string.Empty;
             PasswordBox.Password = string.Empty;
             RoleBox.SelectedIndex = -1;
-        }
-
-        private void ClearNewInventoryForm()
-        {
-            NewInventoryNameBox.Text = string.Empty;
-            NewInventoryUnitBox.Text = string.Empty;
-            NewInventoryQuantityBox.Text = string.Empty;
-            NewInventoryMinQuantityBox.Text = string.Empty;
         }
 
         private static bool TryParseDecimal(string value, out decimal result)
@@ -469,8 +644,8 @@ namespace App_XammerGroup
             string normalizedRole = roleName?.Trim().ToLowerInvariant() ?? string.Empty;
             return normalizedRole.Contains("client")
                 || normalizedRole.Contains("user")
-                || normalizedRole.Contains("\u043a\u043b\u0438\u0435\u043d\u0442")
-                || normalizedRole.Contains("\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b");
+                || normalizedRole.Contains("клиент")
+                || normalizedRole.Contains("пользователь");
         }
 
         private static string BuildFullName(Users user)
@@ -512,7 +687,9 @@ namespace App_XammerGroup
         {
             public int ProductId { get; set; }
             public string ProductName { get; set; }
+            public string Description { get; set; }
             public decimal Price { get; set; }
+            public string ImagePath { get; set; }
             public bool IsActive { get; set; }
 
             public string PriceText => $"{Price:N2} руб.";
@@ -522,8 +699,14 @@ namespace App_XammerGroup
         private sealed class EmployeeRow
         {
             public int UserId { get; set; }
-            public string FullName { get; set; }
+            public string LastName { get; set; }
+            public string FirstName { get; set; }
+            public string MiddleName { get; set; }
+            public string Phone { get; set; }
             public string Email { get; set; }
+            public string Password { get; set; }
+            public int RoleId { get; set; }
+            public string FullName { get; set; }
             public string RoleName { get; set; }
         }
     }
@@ -531,7 +714,6 @@ namespace App_XammerGroup
     public enum AdminSection
     {
         Products,
-        Inventory,
         Employees
     }
 }

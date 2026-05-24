@@ -33,6 +33,7 @@ namespace App_XammerGroup
                           QuantityOnHand,
                           MinQuantity
                       FROM dbo.InventoryItems
+                      WHERE IsActive = 1
                       ORDER BY ItemName").ToList();
             }
         }
@@ -110,12 +111,136 @@ namespace App_XammerGroup
                 }
 
                 db.Database.ExecuteSqlCommand(
-                    @"INSERT INTO dbo.InventoryItems (ItemName, UnitName, QuantityOnHand, MinQuantity)
-                      VALUES (@itemName, @unitName, @quantityOnHand, @minQuantity)",
+                    @"INSERT INTO dbo.InventoryItems (ItemName, UnitName, QuantityOnHand, MinQuantity, IsActive)
+                      VALUES (@itemName, @unitName, @quantityOnHand, @minQuantity, 1)",
                     new SqlParameter("@itemName", normalizedItemName),
                     new SqlParameter("@unitName", normalizedUnitName),
                     new SqlParameter("@quantityOnHand", quantityOnHand),
                     new SqlParameter("@minQuantity", minQuantity));
+            }
+        }
+
+        public static void UpdateInventoryItem(int inventoryItemId, string itemName, string unitName, decimal quantityOnHand, decimal minQuantity)
+        {
+            string normalizedItemName = NormalizeSqlText(itemName);
+            string normalizedUnitName = NormalizeSqlText(unitName);
+
+            if (normalizedItemName == null)
+            {
+                throw new ArgumentException("Item name is required.", nameof(itemName));
+            }
+
+            if (normalizedUnitName == null)
+            {
+                throw new ArgumentException("Unit name is required.", nameof(unitName));
+            }
+
+            if (quantityOnHand < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(quantityOnHand));
+            }
+
+            if (minQuantity < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(minQuantity));
+            }
+
+            using (var db = new DB_Xammer_groupEntities())
+            {
+                EnsureSchemaAndSeed(db);
+
+                bool duplicateExists = db.Database.SqlQuery<int>(
+                    @"SELECT COUNT(1)
+                      FROM dbo.InventoryItems
+                      WHERE InventoryItemId <> @inventoryItemId AND ItemName = @itemName",
+                    new SqlParameter("@inventoryItemId", inventoryItemId),
+                    new SqlParameter("@itemName", normalizedItemName)).Single() > 0;
+
+                if (duplicateExists)
+                {
+                    throw new InvalidOperationException("Такая запчасть уже есть на складе.");
+                }
+
+                int affectedRows = db.Database.ExecuteSqlCommand(
+                    @"UPDATE dbo.InventoryItems
+                      SET ItemName = @itemName,
+                          UnitName = @unitName,
+                          QuantityOnHand = @quantityOnHand,
+                          MinQuantity = @minQuantity,
+                          IsActive = 1
+                      WHERE InventoryItemId = @inventoryItemId",
+                    new SqlParameter("@inventoryItemId", inventoryItemId),
+                    new SqlParameter("@itemName", normalizedItemName),
+                    new SqlParameter("@unitName", normalizedUnitName),
+                    new SqlParameter("@quantityOnHand", quantityOnHand),
+                    new SqlParameter("@minQuantity", minQuantity));
+
+                if (affectedRows == 0)
+                {
+                    throw new InvalidOperationException("Материал не найден.");
+                }
+            }
+        }
+
+        public static List<ProductMaterialRow> GetProductMaterialRows(int productId)
+        {
+            using (var db = new DB_Xammer_groupEntities())
+            {
+                EnsureSchemaAndSeed(db);
+
+                return db.Database.SqlQuery<ProductMaterialRow>(
+                    @"SELECT
+                          pm.ProductMaterialId,
+                          pm.ProductId,
+                          ii.InventoryItemId,
+                          ii.ItemName,
+                          ii.UnitName,
+                          pm.Quantity
+                      FROM dbo.ProductMaterials pm
+                      INNER JOIN dbo.InventoryItems ii ON ii.InventoryItemId = pm.InventoryItemId
+                      WHERE pm.ProductId = @productId
+                      ORDER BY ii.ItemName",
+                    new SqlParameter("@productId", productId)).ToList();
+            }
+        }
+
+        public static void SaveProductMaterial(int productId, int inventoryItemId, decimal quantity)
+        {
+            if (quantity <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(quantity));
+            }
+
+            using (var db = new DB_Xammer_groupEntities())
+            {
+                EnsureSchemaAndSeed(db);
+
+                db.Database.ExecuteSqlCommand(
+                    @"IF EXISTS (SELECT 1 FROM dbo.ProductMaterials WHERE ProductId = @productId AND InventoryItemId = @inventoryItemId)
+                      BEGIN
+                          UPDATE dbo.ProductMaterials
+                          SET Quantity = @quantity
+                          WHERE ProductId = @productId AND InventoryItemId = @inventoryItemId;
+                      END
+                      ELSE
+                      BEGIN
+                          INSERT INTO dbo.ProductMaterials (ProductId, InventoryItemId, Quantity)
+                          VALUES (@productId, @inventoryItemId, @quantity);
+                      END",
+                    new SqlParameter("@productId", productId),
+                    new SqlParameter("@inventoryItemId", inventoryItemId),
+                    new SqlParameter("@quantity", quantity));
+            }
+        }
+
+        public static void DeleteProductMaterial(int productMaterialId)
+        {
+            using (var db = new DB_Xammer_groupEntities())
+            {
+                EnsureSchemaAndSeed(db);
+                db.Database.ExecuteSqlCommand(
+                    "DELETE FROM dbo.ProductMaterials WHERE ProductMaterialId = @productMaterialId",
+                    new SqlParameter("@productMaterialId", productMaterialId));
             }
         }
 
@@ -241,8 +366,16 @@ namespace App_XammerGroup
                           ItemName nvarchar(150) NOT NULL,
                           UnitName nvarchar(30) NOT NULL,
                           QuantityOnHand decimal(12, 3) NOT NULL CONSTRAINT DF_InventoryItems_QuantityOnHand DEFAULT 0,
-                          MinQuantity decimal(12, 3) NOT NULL CONSTRAINT DF_InventoryItems_MinQuantity DEFAULT 0
+                          MinQuantity decimal(12, 3) NOT NULL CONSTRAINT DF_InventoryItems_MinQuantity DEFAULT 0,
+                          IsActive bit NOT NULL CONSTRAINT DF_InventoryItems_IsActive DEFAULT 1
                       );
+                  END");
+
+            db.Database.ExecuteSqlCommand(
+                @"IF COL_LENGTH(N'dbo.InventoryItems', N'IsActive') IS NULL
+                  BEGIN
+                      ALTER TABLE dbo.InventoryItems
+                      ADD IsActive bit NOT NULL CONSTRAINT DF_InventoryItems_IsActive DEFAULT 1;
                   END");
 
             db.Database.ExecuteSqlCommand(
@@ -297,63 +430,209 @@ namespace App_XammerGroup
 
         private static void SeedInventoryItems(DB_Xammer_groupEntities db)
         {
-            EnsureInventoryItem(db, "Металлическое изделие", "шт.", 500, 40);
-            EnsureInventoryItem(db, "Уплотнитель", "шт.", 300, 30);
-            EnsureInventoryItem(db, "Метизы", "шт.", 2000, 200);
+            EnsureInventoryItem(db, "Металлическое изделие для люка", "шт.", 500, 40);
+            EnsureInventoryItem(db, "Металлическое изделие для дверей", "шт.", 500, 40);
+            EnsureInventoryItem(db, "Наполнитель EIS 30", "шт.", 500, 40);
+            EnsureInventoryItem(db, "Наполнитель EIS 60", "шт.", 500, 40);
+            EnsureInventoryItem(db, "Метизы для люка", "шт.", 2000, 240);
+            EnsureInventoryItem(db, "Метизы для двери", "шт.", 2000, 280);
             EnsureInventoryItem(db, "Краска", "кг", 250, 25);
-            EnsureInventoryItem(db, "Упаковка", "шт.", 300, 30);
+            EnsureInventoryItem(db, "Плитка", "шт.", 250, 25);
+            EnsureInventoryItem(db, "Плитка Керлит", "шт.", 250, 25);
+            EnsureInventoryItem(db, "Упаковка для люка", "шт.", 300, 30);
+            EnsureInventoryItem(db, "Упаковка для двери", "шт.", 300, 30);
             EnsureInventoryItem(db, "Паспорт", "шт.", 300, 30);
             EnsureInventoryItem(db, "Шильд люк", "шт.", 150, 15);
             EnsureInventoryItem(db, "Шильд дверь", "шт.", 150, 15);
-            EnsureInventoryItem(db, "Шильд универсальный", "шт.", 150, 15);
             EnsureInventoryItem(db, "Замок", "шт.", 200, 20);
+            EnsureInventoryItem(db, "Ручка огнестойкая", "шт.", 200, 20);
             EnsureInventoryItem(db, "Ручка", "шт.", 200, 20);
-            EnsureInventoryItem(db, "Фурнитура", "компл.", 100, 10);
+            EnsureInventoryItem(db, "Фурнитура", "шт.", 500, 100);
+            EnsureInventoryItem(db, "Стекло", "шт.", 100, 10);
+            EnsureInventoryItem(db, "Петли люк 90\"", "шт.", 300, 30);
+            EnsureInventoryItem(db, "Петли люк 180\"", "шт.", 300, 30);
+            EnsureInventoryItem(db, "Петли дверь 90\"", "шт.", 300, 30);
+            EnsureInventoryItem(db, "Петли дверь 180\"", "шт.", 300, 30);
+
+            DeactivateLegacyInventoryItems(db);
         }
 
         private static void SeedProductsAndRecipes(DB_Xammer_groupEntities db)
         {
-            int hatchId = EnsureProduct(db, "Люк", "Металлический люк со складским списанием по спецификации.", 4500);
-            int doorId = EnsureProduct(db, "Дверь", "Металлическая дверь со складским списанием по спецификации.", 9500);
-            int otherId = EnsureProduct(db, "Другое", "Универсальный малый комплект для нестандартных изделий.", 2500);
-
-            SetRecipe(db, hatchId, new[]
+            foreach (var product in GetSeedProducts())
             {
-                Recipe("Металлическое изделие", 4),
-                Recipe("Уплотнитель", 1),
-                Recipe("Метизы", 8),
-                Recipe("Краска", 1),
-                Recipe("Упаковка", 1),
-                Recipe("Паспорт", 1),
-                Recipe("Шильд люк", 1),
-                Recipe("Замок", 1),
-                Recipe("Ручка", 1)
-            });
+                int productId = EnsureProduct(db, product.Name, product.Description, product.Price);
+                SetRecipe(db, productId, BuildRecipe(product));
+            }
 
-            SetRecipe(db, doorId, new[]
-            {
-                Recipe("Металлическое изделие", 8),
-                Recipe("Уплотнитель", 2),
-                Recipe("Метизы", 16),
-                Recipe("Краска", 2),
-                Recipe("Упаковка", 1),
-                Recipe("Паспорт", 1),
-                Recipe("Шильд дверь", 1),
-                Recipe("Замок", 2),
-                Recipe("Ручка", 1)
-            });
+            DeactivateLegacyProducts(db);
+        }
 
-            SetRecipe(db, otherId, new[]
+        private static IEnumerable<ProductDefinition> GetSeedProducts()
+        {
+            return new[]
             {
-                Recipe("Металлическое изделие", 2),
-                Recipe("Уплотнитель", 1),
-                Recipe("Метизы", 4),
-                Recipe("Краска", 0.5m),
-                Recipe("Упаковка", 1),
+                Product("Люк Прометей одностворчатый EIS-30", ProductKind.Hatch, 5000, "Одностворчатый противопожарный люк серии Прометей с пределом огнестойкости EIS-30, металлическим корпусом, замком, шильдом и петлями открывания до 90 градусов.", eisRating: 30),
+                Product("Люк Прометей одностворчатый EIS-60", ProductKind.Hatch, 6000, "Одностворчатый люк Прометей с усиленным заполнением EIS-60 для помещений с повышенными требованиями к защите от огня и дыма.", eisRating: 60),
+                Product("Люк Прометей двустворчатый EIS-30", ProductKind.Hatch, 7000, "Двустворчатый противопожарный люк Прометей EIS-30 для широких проемов; комплектуется двумя замками, огнестойкими ручками и увеличенным набором метизов.", isDouble: true, eisRating: 30),
+                Product("Люк Прометей двустворчатый EIS-60", ProductKind.Hatch, 8000, "Двустворчатый люк Прометей EIS-60 с усиленным наполнителем и расширенной фурнитурой для широких технических проемов.", isDouble: true, eisRating: 60),
+                Product("Люк Пионер одностворчатый", ProductKind.Hatch, 4500, "Одностворчатый технический люк Пионер без огнестойкого наполнителя для стандартного доступа к инженерным коммуникациям."),
+                Product("Люк Пионер двустворчатый", ProductKind.Hatch, 5000, "Двустворчатый технический люк Пионер для широких проемов без требований по огнестойкости; рассчитан на удобное обслуживание коммуникаций.", isDouble: true),
+                Product("Люк Пионер одностворчатый пожарный", ProductKind.Hatch, 6000, "Одностворчатый пожарный люк Пионер с огнестойкой ручкой, наполнителем EIS-30 и комплектом обязательной маркировки.", isFire: true),
+                Product("Люк Пионер двустворчатый пожарный", ProductKind.Hatch, 6500, "Двустворчатый пожарный люк Пионер для широких проемов, с двумя замками, огнестойкими ручками и усиленным комплектом крепежа.", isDouble: true, isFire: true),
+                Product("Люк Хаммер одностворчатый", ProductKind.Hatch, 4000, "Одностворчатый технический люк Хаммер базовой комплектации для помещений без требований по защите от огня и дыма."),
+                Product("Люк Хаммер двустворчатый", ProductKind.Hatch, 4500, "Двустворчатый технический люк Хаммер для широких проемов; комплектуется двойным набором замков, ручек и фурнитуры.", isDouble: true),
+                Product("Люк Хаммер одностворчатый пожарный", ProductKind.Hatch, 5000, "Одностворчатый пожарный люк Хаммер с огнестойкой ручкой, противопожарным наполнителем и шильдом люка.", isFire: true),
+                Product("Люк Хаммер двустворчатый пожарный", ProductKind.Hatch, 5500, "Двустворчатый пожарный люк Хаммер с увеличенной комплектацией фурнитуры и противопожарным наполнителем.", isDouble: true, isFire: true),
+                Product("Люк Хаммер одностворчатый 180\"", ProductKind.Hatch, 4250, "Одностворчатый люк Хаммер с петлями открывания до 180 градусов для удобного доступа к обслуживаемому проему.", hasHinge180: true),
+                Product("Люк Хаммер двустворчатый 180\"", ProductKind.Hatch, 4750, "Двустворчатый люк Хаммер с петлями 180 градусов, рассчитанный на широкие проемы и частое обслуживание.", isDouble: true, hasHinge180: true),
+                Product("Люк Хаммер одностворчатый пожарный 180\"", ProductKind.Hatch, 5250, "Одностворчатый пожарный люк Хаммер с петлями 180 градусов, огнестойкой ручкой и противопожарным наполнителем.", isFire: true, hasHinge180: true),
+                Product("Люк Хаммер двустворчатый пожарный 180\"", ProductKind.Hatch, 5750, "Двустворчатый пожарный люк Хаммер с петлями 180 градусов, расширенной фурнитурой и комплектом противопожарной оснастки.", isDouble: true, isFire: true, hasHinge180: true),
+                Product("Люк Гиппократ под краску", ProductKind.Hatch, 8000, "Скрытый люк Гиппократ с подготовкой поверхности под окраску, металлической основой и комплектом фурнитуры.", paint: true),
+                Product("Люк Гиппократ под плитку", ProductKind.Hatch, 10000, "Скрытый люк Гиппократ под облицовку плиткой, с усиленной фурнитурой и комплектом для монтажа в отделку.", tile: true),
+                Product("Люк Стикер", ProductKind.Hatch, 1500, "Компактный ревизионный люк Стикер для легкого доступа к коммуникациям без декоративной отделки и огнестойкого наполнителя.", skipDefaultPaint: true),
+                Product("Люк Ветерок под краску", ProductKind.Hatch, 3000, "Люк Ветерок с подготовкой под окраску для аккуратного доступа к вентиляционным и инженерным узлам.", paint: true),
+                Product("Люк Ветерок под плитку", ProductKind.Hatch, 3750, "Люк Ветерок под плиточную отделку с комплектом крепежа и фурнитуры для скрытого монтажа.", tile: true),
+                Product("Дверь одностворчатая EIS-30", ProductKind.Door, 12000, "Одностворчатая противопожарная дверь EIS-30 с металлическим полотном, наполнителем, огнестойкой ручкой и маркировочным шильдом.", eisRating: 30),
+                Product("Дверь одностворчатая EIS-60", ProductKind.Door, 13000, "Одностворчатая дверь EIS-60 с усиленным противопожарным наполнителем для объектов с повышенными требованиями безопасности.", eisRating: 60),
+                Product("Дверь двустворчатая EIS-30", ProductKind.Door, 14000, "Двустворчатая противопожарная дверь EIS-30 для широких проемов, с двойным комплектом замков, ручек и фурнитуры.", isDouble: true, eisRating: 30),
+                Product("Дверь двустворчатая EIS-60", ProductKind.Door, 15000, "Двустворчатая дверь EIS-60 с усиленным наполнением, комплектом метизов и фурнитурой для широких проемов.", isDouble: true, eisRating: 60),
+                Product("Дверь техническая", ProductKind.Door, 10000, "Техническая металлическая дверь без противопожарного наполнителя для служебных и инженерных помещений."),
+                Product("Дверь остекленная", ProductKind.Door, 10000, "Металлическая остекленная дверь без противопожарного наполнителя, укомплектованная стеклом, замком и стандартной фурнитурой.", glass: true),
+                Product("Дверь одностворчатая Керлит EIS-30", ProductKind.Door, 15000, "Одностворчатая дверь Керлит EIS-30 с петлями 180 градусов и подготовкой под отделку плиткой Керлит.", eisRating: 30, kerlit: true, hasHinge180: true),
+                Product("Дверь одностворчатая Керлит EIS-60", ProductKind.Door, 17000, "Одностворчатая дверь Керлит EIS-60 с усиленным наполнителем, петлями 180 градусов и отделкой под плитку Керлит.", eisRating: 60, kerlit: true, hasHinge180: true),
+                Product("Дверь двустворчатая Керлит EIS-30", ProductKind.Door, 18000, "Двустворчатая дверь Керлит EIS-30 для широких проемов, с петлями 180 градусов и комплектом плитки Керлит.", isDouble: true, eisRating: 30, kerlit: true, hasHinge180: true),
+                Product("Дверь двустворчатая Керлит EIS-60", ProductKind.Door, 20000, "Двустворчатая дверь Керлит EIS-60 с усиленным противопожарным наполнителем, петлями 180 градусов и облицовкой Керлит.", isDouble: true, eisRating: 60, kerlit: true, hasHinge180: true)
+            };
+        }
+
+        private static ProductDefinition Product(
+            string name,
+            ProductKind kind,
+            decimal price,
+            string description,
+            bool isDouble = false,
+            int? eisRating = null,
+            bool isFire = false,
+            bool hasHinge180 = false,
+            bool paint = false,
+            bool tile = false,
+            bool kerlit = false,
+            bool glass = false,
+            bool skipDefaultPaint = false)
+        {
+            return new ProductDefinition
+            {
+                Name = name,
+                Description = description,
+                Price = price,
+                Kind = kind,
+                IsDouble = isDouble,
+                EisRating = eisRating,
+                IsFire = isFire,
+                HasHinge180 = hasHinge180,
+                Paint = paint,
+                Tile = tile,
+                Kerlit = kerlit,
+                Glass = glass,
+                SkipDefaultPaint = skipDefaultPaint
+            };
+        }
+
+        private static IEnumerable<RecipeItem> BuildRecipe(ProductDefinition product)
+        {
+            int leafCount = product.IsDouble ? 2 : 1;
+            decimal bodyQuantity = product.IsDouble ? 8 : 6;
+            bool isHatch = product.Kind == ProductKind.Hatch;
+            bool isFireRated = product.EisRating.HasValue || product.IsFire;
+            var recipe = new List<RecipeItem>
+            {
+                Recipe(isHatch ? "Металлическое изделие для люка" : "Металлическое изделие для дверей", bodyQuantity),
+                Recipe(isHatch ? "Метизы для люка" : "Метизы для двери", isHatch ? (product.IsDouble ? 24 : 12) : (product.IsDouble ? 28 : 14)),
+                Recipe(isHatch ? "Упаковка для люка" : "Упаковка для двери", 1),
                 Recipe("Паспорт", 1),
-                Recipe("Шильд универсальный", 1),
-                Recipe("Фурнитура", 1)
-            });
+                Recipe(isHatch ? "Шильд люк" : "Шильд дверь", 1),
+                Recipe("Замок", leafCount),
+                Recipe(isFireRated ? "Ручка огнестойкая" : "Ручка", leafCount),
+                Recipe("Фурнитура", product.IsDouble ? 10 : 5),
+                Recipe(GetHingeItemName(product), leafCount)
+            };
+
+            if (isFireRated)
+            {
+                recipe.Add(Recipe(product.EisRating == 60 ? "Наполнитель EIS 60" : "Наполнитель EIS 30", bodyQuantity));
+            }
+
+            if (product.Kerlit)
+            {
+                recipe.Add(Recipe("Плитка Керлит", leafCount));
+            }
+            else if (product.Tile)
+            {
+                recipe.Add(Recipe("Плитка", leafCount));
+            }
+            else if (product.Paint || !product.SkipDefaultPaint)
+            {
+                recipe.Add(Recipe("Краска", leafCount));
+            }
+
+            if (product.Glass)
+            {
+                recipe.Add(Recipe("Стекло", leafCount));
+            }
+
+            return recipe;
+        }
+
+        private static string GetHingeItemName(ProductDefinition product)
+        {
+            if (product.Kind == ProductKind.Hatch)
+            {
+                return product.HasHinge180 ? "Петли люк 180\"" : "Петли люк 90\"";
+            }
+
+            return product.HasHinge180 ? "Петли дверь 180\"" : "Петли дверь 90\"";
+        }
+
+        private static void DeactivateLegacyInventoryItems(DB_Xammer_groupEntities db)
+        {
+            db.Database.ExecuteSqlCommand(
+                @"UPDATE dbo.InventoryItems
+                  SET IsActive = 0
+                  WHERE ItemName IN (
+                      N'Металлическое изделие',
+                      N'Уплотнитель',
+                      N'Метизы',
+                      N'Упаковка',
+                      N'Шильд универсальный'
+                  )");
+        }
+
+        private static void DeactivateLegacyProducts(DB_Xammer_groupEntities db)
+        {
+            var legacyProducts = db.Products
+                .Where(item => item.ProductName == "Люк" ||
+                               item.ProductName == "Дверь" ||
+                               item.ProductName == "Другое" ||
+                               item.ProductName == "Люк Пионер одностворчатый (без защиты от дыма и огня)" ||
+                               item.ProductName == "Люк Пионер двустворчатый (без защиты от дыма и огня)" ||
+                               item.ProductName == "Люк Хаммер одностворчатый (без защиты от дыма и огня)" ||
+                               item.ProductName == "Люк Хаммер двустворчатый (без защиты от дыма и огня)" ||
+                               item.ProductName == "Люк Хаммер одностворчатый 180\" (без защиты от дыма и огня)" ||
+                               item.ProductName == "Люк Хаммер двустворчатый 180\" (без защиты от дыма и огня)" ||
+                               item.ProductName == "Дверь техническая (без защиты от огня и дыма)" ||
+                               item.ProductName == "Дверь остекленная (без защиты от огня и дыма)")
+                .ToList();
+
+            foreach (var product in legacyProducts)
+            {
+                product.IsActive = false;
+            }
+
+            if (legacyProducts.Count > 0)
+            {
+                db.SaveChanges();
+            }
         }
 
         private static void EnsureInventoryItem(DB_Xammer_groupEntities db, string itemName, string unitName, decimal quantity, decimal minQuantity)
@@ -361,8 +640,17 @@ namespace App_XammerGroup
             db.Database.ExecuteSqlCommand(
                 @"IF NOT EXISTS (SELECT 1 FROM dbo.InventoryItems WHERE ItemName = @itemName)
                   BEGIN
-                      INSERT INTO dbo.InventoryItems (ItemName, UnitName, QuantityOnHand, MinQuantity)
-                      VALUES (@itemName, @unitName, @quantity, @minQuantity);
+                      INSERT INTO dbo.InventoryItems (ItemName, UnitName, QuantityOnHand, MinQuantity, IsActive)
+                      VALUES (@itemName, @unitName, @quantity, @minQuantity, 1);
+                  END
+                  ELSE
+                  BEGIN
+                      UPDATE dbo.InventoryItems
+                      SET UnitName = @unitName,
+                          QuantityOnHand = CASE WHEN QuantityOnHand < @quantity THEN @quantity ELSE QuantityOnHand END,
+                          MinQuantity = @minQuantity,
+                          IsActive = 1
+                      WHERE ItemName = @itemName;
                   END",
                 new SqlParameter("@itemName", itemName),
                 new SqlParameter("@unitName", unitName),
@@ -375,11 +663,10 @@ namespace App_XammerGroup
             var product = db.Products.FirstOrDefault(item => item.ProductName == productName);
             if (product != null)
             {
-                if (!(product.IsActive ?? false))
-                {
-                    product.IsActive = true;
-                    db.SaveChanges();
-                }
+                product.Description = description;
+                product.Price = price;
+                product.IsActive = true;
+                db.SaveChanges();
 
                 return product.ProductId;
             }
@@ -406,6 +693,10 @@ namespace App_XammerGroup
 
         private static void SetRecipe(DB_Xammer_groupEntities db, int productId, IEnumerable<RecipeItem> recipe)
         {
+            db.Database.ExecuteSqlCommand(
+                "DELETE FROM dbo.ProductMaterials WHERE ProductId = @productId",
+                new SqlParameter("@productId", productId));
+
             foreach (var item in recipe)
             {
                 db.Database.ExecuteSqlCommand(
@@ -416,17 +707,8 @@ namespace App_XammerGroup
 
                       IF @inventoryItemId IS NOT NULL
                       BEGIN
-                          IF EXISTS (SELECT 1 FROM dbo.ProductMaterials WHERE ProductId = @productId AND InventoryItemId = @inventoryItemId)
-                          BEGIN
-                              UPDATE dbo.ProductMaterials
-                              SET Quantity = @quantity
-                              WHERE ProductId = @productId AND InventoryItemId = @inventoryItemId;
-                          END
-                          ELSE
-                          BEGIN
-                              INSERT INTO dbo.ProductMaterials (ProductId, InventoryItemId, Quantity)
-                              VALUES (@productId, @inventoryItemId, @quantity);
-                          END
+                          INSERT INTO dbo.ProductMaterials (ProductId, InventoryItemId, Quantity)
+                          VALUES (@productId, @inventoryItemId, @quantity);
                       END",
                     new SqlParameter("@productId", productId),
                     new SqlParameter("@itemName", item.ItemName),
@@ -480,6 +762,29 @@ namespace App_XammerGroup
             return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
         }
 
+        private enum ProductKind
+        {
+            Hatch,
+            Door
+        }
+
+        private sealed class ProductDefinition
+        {
+            public string Name { get; set; }
+            public string Description { get; set; }
+            public decimal Price { get; set; }
+            public ProductKind Kind { get; set; }
+            public bool IsDouble { get; set; }
+            public int? EisRating { get; set; }
+            public bool IsFire { get; set; }
+            public bool HasHinge180 { get; set; }
+            public bool Paint { get; set; }
+            public bool Tile { get; set; }
+            public bool Kerlit { get; set; }
+            public bool Glass { get; set; }
+            public bool SkipDefaultPaint { get; set; }
+        }
+
         private sealed class RecipeItem
         {
             public string ItemName { get; set; }
@@ -514,6 +819,18 @@ namespace App_XammerGroup
         public string QuantityText => $"{QuantityOnHand:N3} {UnitName}";
         public string MinQuantityText => $"{MinQuantity:N3} {UnitName}";
         public string StatusText => QuantityOnHand <= MinQuantity ? "Нужно пополнить" : "В норме";
+    }
+
+    public sealed class ProductMaterialRow
+    {
+        public int ProductMaterialId { get; set; }
+        public int ProductId { get; set; }
+        public int InventoryItemId { get; set; }
+        public string ItemName { get; set; }
+        public string UnitName { get; set; }
+        public decimal Quantity { get; set; }
+
+        public string QuantityText => $"{Quantity:N3} {UnitName}";
     }
 
     public sealed class InventoryShortage

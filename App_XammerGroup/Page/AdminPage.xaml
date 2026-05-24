@@ -15,7 +15,7 @@
                        FontSize="30"
                        FontWeight="SemiBold"
                        Foreground="#202020"/>
-            <TextBlock Text="Добавление и удаление товаров и сотрудников"
+            <TextBlock Text="Редактирование товаров, состава списания и сотрудников"
                        Margin="0,6,0,0"
                        FontSize="14"
                        Foreground="#666666"/>
@@ -33,6 +33,11 @@
                             <ColumnDefinition Width="20"/>
                             <ColumnDefinition Width="1.1*"/>
                         </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="1.2*"/>
+                            <RowDefinition Height="16"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
                         <DataGrid x:Name="ProductsGrid"
                                   AutoGenerateColumns="False"
@@ -40,7 +45,8 @@
                                   IsReadOnly="True"
                                   HeadersVisibility="Column"
                                   GridLinesVisibility="Horizontal"
-                                  RowHeight="46">
+                                  RowHeight="46"
+                                  SelectionChanged="ProductsGrid_SelectionChanged">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="ID" Width="70" Binding="{Binding ProductId}"/>
                                 <DataGridTextColumn Header="Название" Width="2*" Binding="{Binding ProductName}"/>
@@ -49,147 +55,125 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <StackPanel Grid.Column="2">
-                            <TextBox x:Name="ProductNameBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Название товара"/>
+                        <materialDesign:Card Grid.Row="2"
+                                             Padding="12"
+                                             UniformCornerRadius="10"
+                                             Background="#FAFAFA">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                            <TextBox x:Name="ProductDescriptionBox"
-                                     Margin="0,0,0,10"
-                                     Height="90"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     VerticalScrollBarVisibility="Auto"
-                                     materialDesign:HintAssist.Hint="Описание"/>
+                                <TextBlock Text="Состав выбранного товара"
+                                           FontWeight="SemiBold"
+                                           Foreground="#202020"/>
 
-                            <TextBox x:Name="ProductPriceBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Цена"/>
+                                <DataGrid x:Name="ProductMaterialsGrid"
+                                          Grid.Row="1"
+                                          Margin="0,10,0,10"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          IsReadOnly="True"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="Horizontal"
+                                          RowHeight="40"
+                                          SelectionChanged="ProductMaterialsGrid_SelectionChanged">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Деталь" Width="2*" Binding="{Binding ItemName}"/>
+                                        <DataGridTextColumn Header="Кол-во списания" Width="150" Binding="{Binding QuantityText}"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
 
-                            <TextBox x:Name="ProductImagePathBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Путь к изображению"/>
+                                <Grid Grid.Row="2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="12"/>
+                                        <ColumnDefinition Width="110"/>
+                                    </Grid.ColumnDefinitions>
 
-                            <CheckBox x:Name="ProductIsActiveBox"
-                                      Margin="0,0,0,10"
-                                      Content="Активный товар"
-                                      IsChecked="True"/>
+                                    <ComboBox x:Name="MaterialItemBox"
+                                              Grid.Column="0"
+                                              Height="42"
+                                              materialDesign:HintAssist.Hint="Деталь со склада"/>
 
-                            <TextBlock x:Name="ProductsErrorText"
-                                       Foreground="#FFB00020"
-                                       TextWrapping="Wrap"
-                                       Margin="0,8,0,0"/>
+                                    <TextBox x:Name="MaterialQuantityBox"
+                                             Grid.Column="2"
+                                             Height="42"
+                                             materialDesign:HintAssist.Hint="Кол-во"/>
 
-                            <Button Content="Добавить товар"
-                                    Height="42"
-                                    Margin="0,18,0,0"
-                                    Click="AddProduct_Click"
-                                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                    <Button Grid.Column="4"
+                                            Content="Сохранить"
+                                            Click="SaveMaterial_Click"
+                                            Style="{StaticResource MaterialDesignRaisedButton}"/>
 
-                            <Button Content="Удалить выбранный товар"
-                                    Height="42"
-                                    Margin="0,10,0,0"
-                                    Click="DeleteProduct_Click"
-                                    Style="{StaticResource MaterialDesignOutlinedButton}"/>
-                        </StackPanel>
-                    </Grid>
-                </TabItem>
-
-                <TabItem x:Name="InventoryTab" Header="Склад">
-                    <Grid Margin="0,16,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2*"/>
-                            <ColumnDefinition Width="20"/>
-                            <ColumnDefinition Width="1.1*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <DataGrid x:Name="InventoryGrid"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False"
-                                  IsReadOnly="True"
-                                  HeadersVisibility="Column"
-                                  GridLinesVisibility="Horizontal"
-                                  RowHeight="46">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="ID" Width="70" Binding="{Binding InventoryItemId}"/>
-                                <DataGridTextColumn Header="Материал" Width="2*" Binding="{Binding ItemName}"/>
-                                <DataGridTextColumn Header="Остаток" Width="150" Binding="{Binding QuantityText}"/>
-                                <DataGridTextColumn Header="Минимум" Width="150" Binding="{Binding MinQuantityText}"/>
-                                <DataGridTextColumn Header="Статус" Width="160" Binding="{Binding StatusText}"/>
-                            </DataGrid.Columns>
-                        </DataGrid>
+                                    <Button Grid.Column="6"
+                                            Content="Удалить"
+                                            Click="DeleteMaterial_Click"
+                                            Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                                </Grid>
+                            </Grid>
+                        </materialDesign:Card>
 
                         <ScrollViewer Grid.Column="2"
+                                      Grid.RowSpan="3"
                                       VerticalScrollBarVisibility="Auto">
                             <StackPanel>
-                            <TextBlock Text="Пополнение склада"
-                                       FontWeight="SemiBold"
-                                       Foreground="#202020"/>
+                                <TextBox x:Name="ProductNameBox"
+                                         Margin="0,0,0,10"
+                                         Height="42"
+                                         materialDesign:HintAssist.Hint="Название товара"/>
 
-                            <TextBox x:Name="InventoryQuantityBox"
-                                     Margin="0,12,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Количество"/>
+                                <TextBox x:Name="ProductDescriptionBox"
+                                         Margin="0,0,0,10"
+                                         Height="150"
+                                         AcceptsReturn="True"
+                                         TextWrapping="Wrap"
+                                         VerticalScrollBarVisibility="Auto"
+                                         materialDesign:HintAssist.Hint="Подробное описание"/>
 
-                            <TextBox x:Name="InventoryCommentBox"
-                                     Margin="0,0,0,10"
-                                     Height="84"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     VerticalScrollBarVisibility="Auto"
-                                     materialDesign:HintAssist.Hint="Комментарий"/>
+                                <TextBox x:Name="ProductPriceBox"
+                                         Margin="0,0,0,10"
+                                         Height="42"
+                                         materialDesign:HintAssist.Hint="Цена"/>
 
-                            <TextBlock x:Name="InventoryErrorText"
-                                       Foreground="#FFB00020"
-                                       TextWrapping="Wrap"
-                                       Margin="0,8,0,0"/>
+                                <TextBox x:Name="ProductImagePathBox"
+                                         Margin="0,0,0,10"
+                                         Height="42"
+                                         materialDesign:HintAssist.Hint="Путь к изображению"/>
 
-                            <Button Content="Пополнить выбранный материал"
-                                    Height="42"
-                                    Margin="0,18,0,0"
-                                    Click="AddInventory_Click"
-                                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                <CheckBox x:Name="ProductIsActiveBox"
+                                          Margin="0,0,0,10"
+                                          Content="Активный товар"
+                                          IsChecked="True"/>
 
-                            <Button Content="Обновить остатки"
-                                    Height="42"
-                                    Margin="0,10,0,0"
-                                    Click="RefreshInventory_Click"
-                                    Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                                <TextBlock x:Name="ProductsErrorText"
+                                           Foreground="#FFB00020"
+                                           TextWrapping="Wrap"
+                                           Margin="0,8,0,0"/>
 
-                            <Separator Margin="0,20,0,18"/>
+                                <Button Content="Добавить товар"
+                                        Height="42"
+                                        Margin="0,18,0,0"
+                                        Click="AddProduct_Click"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"/>
 
-                            <TextBlock Text="Новая запчасть"
-                                       FontWeight="SemiBold"
-                                       Foreground="#202020"/>
+                                <Button Content="Сохранить изменения"
+                                        Height="42"
+                                        Margin="0,10,0,0"
+                                        Click="UpdateProduct_Click"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"/>
 
-                            <TextBox x:Name="NewInventoryNameBox"
-                                     Margin="0,12,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Название запчасти"/>
-
-                            <TextBox x:Name="NewInventoryUnitBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Единица измерения, например шт. или кг"/>
-
-                            <TextBox x:Name="NewInventoryQuantityBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Начальный остаток"/>
-
-                            <TextBox x:Name="NewInventoryMinQuantityBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Минимальный остаток"/>
-
-                            <Button Content="Добавить запчасть"
-                                    Height="42"
-                                    Margin="0,8,0,0"
-                                    Click="AddInventoryItem_Click"
-                                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                <Button Content="Удалить выбранный товар"
+                                        Height="42"
+                                        Margin="0,10,0,0"
+                                        Click="DeleteProduct_Click"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"/>
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>
@@ -209,7 +193,8 @@
                                   IsReadOnly="True"
                                   HeadersVisibility="Column"
                                   GridLinesVisibility="Horizontal"
-                                  RowHeight="46">
+                                  RowHeight="46"
+                                  SelectionChanged="EmployeesGrid_SelectionChanged">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="ID" Width="70" Binding="{Binding UserId}"/>
                                 <DataGridTextColumn Header="Сотрудник" Width="2*" Binding="{Binding FullName}"/>
@@ -218,59 +203,68 @@
                             </DataGrid.Columns>
                         </DataGrid>
 
-                        <StackPanel Grid.Column="2">
-                            <TextBox x:Name="LastNameBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Фамилия"/>
-
-                            <TextBox x:Name="FirstNameBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Имя"/>
-
-                            <TextBox x:Name="MiddleNameBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Отчество"/>
-
-                            <TextBox x:Name="PhoneBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Телефон"/>
-
-                            <TextBox x:Name="EmailBox"
-                                     Margin="0,0,0,10"
-                                     Height="42"
-                                     materialDesign:HintAssist.Hint="Email"/>
-
-                            <PasswordBox x:Name="PasswordBox"
+                        <ScrollViewer Grid.Column="2"
+                                      VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <TextBox x:Name="LastNameBox"
                                          Margin="0,0,0,10"
                                          Height="42"
-                                         materialDesign:HintAssist.Hint="Пароль"/>
+                                         materialDesign:HintAssist.Hint="Фамилия"/>
 
-                            <ComboBox x:Name="RoleBox"
-                                      Margin="0,0,0,10"
-                                      Height="42"
-                                      materialDesign:HintAssist.Hint="Роль"/>
+                                <TextBox x:Name="FirstNameBox"
+                                         Margin="0,0,0,10"
+                                         Height="42"
+                                         materialDesign:HintAssist.Hint="Имя"/>
 
-                            <TextBlock x:Name="EmployeesErrorText"
-                                       Foreground="#FFB00020"
-                                       TextWrapping="Wrap"
-                                       Margin="0,8,0,0"/>
+                                <TextBox x:Name="MiddleNameBox"
+                                         Margin="0,0,0,10"
+                                         Height="42"
+                                         materialDesign:HintAssist.Hint="Отчество"/>
 
-                            <Button Content="Добавить сотрудника"
-                                    Height="42"
-                                    Margin="0,18,0,0"
-                                    Click="AddEmployee_Click"
-                                    Style="{StaticResource MaterialDesignRaisedButton}"/>
+                                <TextBox x:Name="PhoneBox"
+                                         Margin="0,0,0,10"
+                                         Height="42"
+                                         materialDesign:HintAssist.Hint="Телефон"/>
 
-                            <Button Content="Удалить выбранного сотрудника"
-                                    Height="42"
-                                    Margin="0,10,0,0"
-                                    Click="DeleteEmployee_Click"
-                                    Style="{StaticResource MaterialDesignOutlinedButton}"/>
-                        </StackPanel>
+                                <TextBox x:Name="EmailBox"
+                                         Margin="0,0,0,10"
+                                         Height="42"
+                                         materialDesign:HintAssist.Hint="Email"/>
+
+                                <PasswordBox x:Name="PasswordBox"
+                                             Margin="0,0,0,10"
+                                             Height="42"
+                                             materialDesign:HintAssist.Hint="Пароль"/>
+
+                                <ComboBox x:Name="RoleBox"
+                                          Margin="0,0,0,10"
+                                          Height="42"
+                                          materialDesign:HintAssist.Hint="Роль"/>
+
+                                <TextBlock x:Name="EmployeesErrorText"
+                                           Foreground="#FFB00020"
+                                           TextWrapping="Wrap"
+                                           Margin="0,8,0,0"/>
+
+                                <Button Content="Добавить сотрудника"
+                                        Height="42"
+                                        Margin="0,18,0,0"
+                                        Click="AddEmployee_Click"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"/>
+
+                                <Button Content="Сохранить изменения"
+                                        Height="42"
+                                        Margin="0,10,0,0"
+                                        Click="UpdateEmployee_Click"
+                                        Style="{StaticResource MaterialDesignRaisedButton}"/>
+
+                                <Button Content="Удалить выбранного сотрудника"
+                                        Height="42"
+                                        Margin="0,10,0,0"
+                                        Click="DeleteEmployee_Click"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                            </StackPanel>
+                        </ScrollViewer>
                     </Grid>
                 </TabItem>
             </TabControl>

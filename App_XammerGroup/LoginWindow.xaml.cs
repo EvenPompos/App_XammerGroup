@@ -135,5 +135,12 @@ namespace App_XammerGroup
                 ErrorText.Text = "\u041f\u0430\u0440\u043e\u043b\u044c \u0438\u0437\u043c\u0435\u043d\u0435\u043d. \u0412\u044b\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0432\u0445\u043e\u0434 \u0441 \u043d\u043e\u0432\u044b\u043c \u043f\u0430\u0440\u043e\u043b\u0435\u043c.";
             }
         }
+
+        private void Guest_Click(object sender, RoutedEventArgs e)
+        {
+            var mainWindow = new MainWindow(isGuest: true);
+            mainWindow.Show();
+            Close();
+        }
     }
 }

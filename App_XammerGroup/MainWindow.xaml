@@ -92,7 +92,7 @@
                         HorizontalContentAlignment="Left">
                     <StackPanel Orientation="Horizontal">
                         <materialDesign:PackIcon Kind="FileChartOutline" Width="22" Margin="0,0,10,0"/>
-                        <TextBlock Text="PDF-отчеты"/>
+                        <TextBlock Text="Отчеты"/>
                     </StackPanel>
                 </Button>
 

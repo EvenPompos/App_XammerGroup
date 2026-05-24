@@ -31,26 +31,60 @@ namespace App_XammerGroup
             OpenDefaultSection();
         }
 
+        public MainWindow(bool isGuest)
+        {
+            InitializeComponent();
+
+            if (!isGuest)
+            {
+                throw new ArgumentException("Use MainWindow(Users user) for authorized users.", nameof(isGuest));
+            }
+
+            _currentRole = AppRole.Guest;
+            UserNameText.Text = "\u0413\u043e\u0441\u0442\u044c";
+            RoleText.Text = GetRoleCaption(_currentRole);
+
+            ApplyRoleAccess();
+            OpenDefaultSection();
+        }
+
         private enum AppRole
         {
+            Guest,
             User,
             Manager,
+            Master,
             Admin
         }
 
         private void Profile_Click(object sender, RoutedEventArgs e)
         {
+            if (_currentUser == null)
+            {
+                return;
+            }
+
             MainFrame.Navigate(new ProfilePage(_currentUser.UserId, CanEditProfile(), RefreshCurrentUser));
         }
 
         private void Orders_Click(object sender, RoutedEventArgs e)
         {
+            if (_currentUser == null)
+            {
+                return;
+            }
+
             MainFrame.Navigate(new OrdersPage(_currentUser.UserId, _currentRole != AppRole.User));
         }
 
         private void Products_Click(object sender, RoutedEventArgs e)
         {
-            MainFrame.Navigate(new ProductsPage(_currentUser.UserId, _currentRole == AppRole.User, OpenCartPage));
+            int userId = _currentUser?.UserId ?? 0;
+            bool canAddToCart = _currentRole == AppRole.User;
+            bool onlyActiveProducts = _currentRole == AppRole.Guest;
+
+            Action openCartAction = canAddToCart ? (Action)OpenCartPage : null;
+            MainFrame.Navigate(new ProductsPage(userId, canAddToCart, openCartAction, onlyActiveProducts));
         }
 
         private void Cart_Click(object sender, RoutedEventArgs e)
@@ -60,6 +94,11 @@ namespace App_XammerGroup
 
         private void Employees_Click(object sender, RoutedEventArgs e)
         {
+            if (_currentUser == null)
+            {
+                return;
+            }
+
             MainFrame.Navigate(new AdminPage(_currentUser.UserId, AdminSection.Employees));
         }
 
@@ -70,12 +109,22 @@ namespace App_XammerGroup
 
         private void Inventory_Click(object sender, RoutedEventArgs e)
         {
-            MainFrame.Navigate(new AdminPage(_currentUser.UserId, AdminSection.Inventory));
+            if (_currentUser == null)
+            {
+                return;
+            }
+
+            MainFrame.Navigate(new InventoryPage());
         }
 
         private void Admin_Click(object sender, RoutedEventArgs e)
         {
-            MainFrame.Navigate(new AdminPage(_currentUser.UserId, AdminSection.Products));
+            if (_currentUser == null)
+            {
+                return;
+            }
+
+            MainFrame.Navigate(new AdminPage(_currentUser.UserId, AdminSection.Products, _currentRole == AppRole.Admin));
         }
 
         private void Logout_Click(object sender, RoutedEventArgs e)
@@ -111,7 +160,15 @@ namespace App_XammerGroup
                     break;
 
                 case AppRole.Manager:
-                    ShowButtons(ProfileButton, OrdersButton, ProductsButton);
+                    ShowButtons(ProfileButton, OrdersButton, ProductsButton, ReportsButton);
+                    break;
+
+                case AppRole.Master:
+                    ShowButtons(ProfileButton, OrdersButton, ProductsButton, InventoryButton, AdminButton);
+                    break;
+
+                case AppRole.Guest:
+                    ShowButtons(ProductsButton);
                     break;
 
                 default:
@@ -130,6 +187,14 @@ namespace App_XammerGroup
 
                 case AppRole.Manager:
                     Orders_Click(this, null);
+                    break;
+
+                case AppRole.Master:
+                    Inventory_Click(this, null);
+                    break;
+
+                case AppRole.Guest:
+                    Products_Click(this, null);
                     break;
 
                 default:
@@ -179,10 +244,14 @@ namespace App_XammerGroup
                 return AppRole.Admin;
             }
 
-            if (normalizedRole.Contains("manager") ||
-                normalizedRole.Contains("master") ||
-                normalizedRole.Contains("\u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440") ||
+            if (normalizedRole.Contains("master") ||
                 normalizedRole.Contains("\u043c\u0430\u0441\u0442\u0435\u0440"))
+            {
+                return AppRole.Master;
+            }
+
+            if (normalizedRole.Contains("manager") ||
+                normalizedRole.Contains("\u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440"))
             {
                 return AppRole.Manager;
             }
@@ -210,7 +279,13 @@ namespace App_XammerGroup
                     return "\u0420\u043e\u043b\u044c: admin";
 
                 case AppRole.Manager:
-                    return "\u0420\u043e\u043b\u044c: manager/master";
+                    return "\u0420\u043e\u043b\u044c: manager";
+
+                case AppRole.Master:
+                    return "\u0420\u043e\u043b\u044c: master";
+
+                case AppRole.Guest:
+                    return "\u0420\u043e\u043b\u044c: \u0433\u043e\u0441\u0442\u044c";
 
                 default:
                     return "\u0420\u043e\u043b\u044c: user";
@@ -227,6 +302,11 @@ namespace App_XammerGroup
 
         private void OpenCartPage()
         {
+            if (_currentUser == null)
+            {
+                return;
+            }
+
             MainFrame.Navigate(new CartPage(_currentUser.UserId));
         }
 

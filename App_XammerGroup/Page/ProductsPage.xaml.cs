@@ -12,16 +12,18 @@ namespace App_XammerGroup
         private readonly int _userId;
         private readonly bool _canAddToCart;
         private readonly Action _openCartAction;
+        private readonly bool _onlyActiveProducts;
 
         private List<ProductListItem> _allProducts = new List<ProductListItem>();
 
-        public ProductsPage(int userId, bool canAddToCart, Action openCartAction = null)
+        public ProductsPage(int userId, bool canAddToCart, Action openCartAction = null, bool onlyActiveProducts = false)
         {
             InitializeComponent();
 
             _userId = userId;
             _canAddToCart = canAddToCart;
             _openCartAction = openCartAction;
+            _onlyActiveProducts = onlyActiveProducts;
 
             Loaded += ProductsPage_Loaded;
         }
@@ -42,7 +44,8 @@ namespace App_XammerGroup
                 new FilterOption("active", "\u0422\u043e\u043b\u044c\u043a\u043e \u0430\u043a\u0442\u0438\u0432\u043d\u044b\u0435"),
                 new FilterOption("inactive", "\u0422\u043e\u043b\u044c\u043a\u043e \u0441\u043a\u0440\u044b\u0442\u044b\u0435")
             };
-            ActiveFilterBox.SelectedIndex = _canAddToCart ? 1 : 0;
+            ActiveFilterBox.SelectedIndex = _canAddToCart || _onlyActiveProducts ? 1 : 0;
+            ActiveFilterBox.IsEnabled = !_onlyActiveProducts;
 
             SortBox.ItemsSource = new[]
             {
@@ -95,14 +98,21 @@ namespace App_XammerGroup
                      item.Description.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0));
             }
 
-            string activeFilter = (ActiveFilterBox.SelectedItem as FilterOption)?.Value;
-            if (activeFilter == "active")
+            if (_onlyActiveProducts)
             {
                 query = query.Where(item => item.IsActive);
             }
-            else if (activeFilter == "inactive")
+            else
             {
-                query = query.Where(item => !item.IsActive);
+                string activeFilter = (ActiveFilterBox.SelectedItem as FilterOption)?.Value;
+                if (activeFilter == "active")
+                {
+                    query = query.Where(item => item.IsActive);
+                }
+                else if (activeFilter == "inactive")
+                {
+                    query = query.Where(item => !item.IsActive);
+                }
             }
 
             if (TryParseDecimal(MinPriceBox.Text, out decimal minPrice))
