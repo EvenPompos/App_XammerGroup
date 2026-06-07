@@ -74,7 +74,7 @@ namespace App_XammerGroup
                 return;
             }
 
-            MainFrame.Navigate(new OrdersPage(_currentUser.UserId, _currentRole != AppRole.User));
+            MainFrame.Navigate(new OrdersPage(_currentUser.UserId, _currentUser.RoleId, _currentUser.RoleId != 4));
         }
 
         private void Products_Click(object sender, RoutedEventArgs e)
@@ -172,7 +172,7 @@ namespace App_XammerGroup
                     break;
 
                 default:
-                    ShowButtons(ProfileButton, ProductsButton, CartButton);
+                    ShowButtons(ProfileButton, OrdersButton, ProductsButton, CartButton);
                     break;
             }
         }

@@ -67,18 +67,21 @@ namespace App_XammerGroup
 
                 _allProducts = db.Products
                     .ToList()
-                    .Select(product => new ProductListItem
+                    .Select(product =>
                     {
-                        ProductId = product.ProductId,
-                        ProductName = product.ProductName,
-                        Description = product.Description,
-                        Price = product.Price,
-                        IsActive = product.IsActive ?? false,
-                        IsAvailable = availabilityByProductId.TryGetValue(product.ProductId, out ProductAvailabilityInfo availability) &&
-                            availability.IsAvailable,
-                        AvailabilityText = availabilityByProductId.TryGetValue(product.ProductId, out availability)
-                            ? availability.AvailabilityText
-                            : "\u041d\u0435\u0442 \u0441\u043e\u0441\u0442\u0430\u0432\u0430"
+                        availabilityByProductId.TryGetValue(product.ProductId, out ProductAvailabilityInfo availability);
+
+                        return new ProductListItem
+                        {
+                            ProductId = product.ProductId,
+                            ProductName = product.ProductName,
+                            Description = product.Description,
+                            Price = product.Price,
+                            IsActive = product.IsActive ?? false,
+                            HasMaterials = availability?.HasMaterials ?? false,
+                            IsAvailable = availability?.IsAvailable ?? false,
+                            AvailabilityText = availability?.AvailabilityText ?? "\u041d\u0435\u0442 \u0441\u043e\u0441\u0442\u0430\u0432\u0430"
+                        };
                     })
                     .ToList();
             }
@@ -86,7 +89,7 @@ namespace App_XammerGroup
 
         private void ApplyFilters()
         {
-            IEnumerable<ProductListItem> query = _allProducts;
+            IEnumerable<ProductListItem> query = _allProducts.Where(item => item.HasMaterials);
 
             string search = SearchBox.Text?.Trim();
             if (!string.IsNullOrWhiteSpace(search))
@@ -212,6 +215,14 @@ namespace App_XammerGroup
                     return;
                 }
 
+                if (!product.ProductMaterials.Any())
+                {
+                    MessageBox.Show("\u0414\u043b\u044f \u0438\u0437\u0434\u0435\u043b\u0438\u044f \u043d\u0435 \u0437\u0430\u0434\u0430\u043d \u0441\u043e\u0441\u0442\u0430\u0432.", "\u0421\u043e\u0441\u0442\u0430\u0432", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    LoadProducts();
+                    ApplyFilters();
+                    return;
+                }
+
                 var shortages = InventoryService.ValidateAvailability(db, new[]
                 {
                     new CartItem
@@ -264,6 +275,7 @@ namespace App_XammerGroup
             public string Description { get; set; }
             public decimal Price { get; set; }
             public bool IsActive { get; set; }
+            public bool HasMaterials { get; set; }
             public bool IsAvailable { get; set; }
             public string AvailabilityText { get; set; }
 

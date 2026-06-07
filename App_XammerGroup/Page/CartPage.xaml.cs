@@ -122,6 +122,11 @@ namespace App_XammerGroup
                     }
                 }
             }
+            catch (InvalidOperationException ex)
+            {
+                ErrorText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB00020"));
+                ErrorText.Text = ex.Message;
+            }
             catch (Exception ex)
             {
                 ErrorText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFB00020"));

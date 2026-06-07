@@ -24,6 +24,15 @@
         <AssociationConnector Association="DB_Xammer_groupModel.FK__Productio__Stage__6477ECF3" ManuallyRouted="false" />
         <AssociationConnector Association="DB_Xammer_groupModel.FK__Productio__Stage__66603565" ManuallyRouted="false" />
         <AssociationConnector Association="DB_Xammer_groupModel.FK__Users__RoleId__4E88ABD4" ManuallyRouted="false" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.InventoryItems" Width="1.5" PointX="5.375" PointY="10.875" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.InventoryMovements" Width="1.5" PointX="10.625" PointY="1.375" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.ProductMaterials" Width="1.5" PointX="7.625" PointY="0.5" />
+        <EntityTypeShape EntityType="DB_Xammer_groupModel.sysdiagrams" Width="1.5" PointX="0.5" PointY="10.25" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK_InventoryMovements_InventoryItems" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK_ProductMaterials_InventoryItems" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK_InventoryMovements_Orders" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK_InventoryMovements_Products" />
+        <AssociationConnector Association="DB_Xammer_groupModel.FK_ProductMaterials_Products" />
       </Diagram>
     </edmx:Diagrams>
   </edmx:Designer>

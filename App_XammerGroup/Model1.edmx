@@ -4,7 +4,30 @@
   <edmx:Runtime>
     <!-- SSDL content -->
     <edmx:StorageModels>
-      <Schema Namespace="Хранилище DB_Xammer_groupModel" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+    <Schema Namespace="Хранилище DB_Xammer_groupModel" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="InventoryItems">
+          <Key>
+            <PropertyRef Name="InventoryItemId" />
+          </Key>
+          <Property Name="InventoryItemId" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="ItemName" Type="nvarchar" MaxLength="150" Nullable="false" />
+          <Property Name="UnitName" Type="nvarchar" MaxLength="30" Nullable="false" />
+          <Property Name="QuantityOnHand" Type="decimal" Precision="12" Scale="3" Nullable="false" />
+          <Property Name="MinQuantity" Type="decimal" Precision="12" Scale="3" Nullable="false" />
+          <Property Name="IsActive" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="InventoryMovements">
+          <Key>
+            <PropertyRef Name="MovementId" />
+          </Key>
+          <Property Name="MovementId" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="InventoryItemId" Type="int" Nullable="false" />
+          <Property Name="OrderId" Type="int" />
+          <Property Name="ProductId" Type="int" />
+          <Property Name="QuantityChange" Type="decimal" Precision="12" Scale="3" Nullable="false" />
+          <Property Name="MovementDate" Type="datetime" Nullable="false" />
+          <Property Name="Comment" Type="nvarchar" MaxLength="255" />
+        </EntityType>
         <EntityType Name="OrderItems">
           <Key>
             <PropertyRef Name="Id" />
@@ -62,6 +85,15 @@
           <Property Name="StageTypeId" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
           <Property Name="StageName" Type="nvarchar" MaxLength="100" Nullable="false" />
         </EntityType>
+        <EntityType Name="ProductMaterials">
+          <Key>
+            <PropertyRef Name="ProductMaterialId" />
+          </Key>
+          <Property Name="ProductMaterialId" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="ProductId" Type="int" Nullable="false" />
+          <Property Name="InventoryItemId" Type="int" Nullable="false" />
+          <Property Name="Quantity" Type="decimal" Precision="12" Scale="3" Nullable="false" />
+        </EntityType>
         <EntityType Name="Products">
           <Key>
             <PropertyRef Name="ProductId" />
@@ -79,6 +111,16 @@
           </Key>
           <Property Name="RoleId" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
           <Property Name="RoleName" Type="nvarchar" MaxLength="50" Nullable="false" />
+        </EntityType>
+        <EntityType Name="sysdiagrams">
+          <Key>
+            <PropertyRef Name="diagram_id" />
+          </Key>
+          <Property Name="name" Type="nvarchar" MaxLength="128" Nullable="false" />
+          <Property Name="principal_id" Type="int" Nullable="false" />
+          <Property Name="diagram_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="version" Type="int" />
+          <Property Name="definition" Type="varbinary(max)" />
         </EntityType>
         <EntityType Name="Users">
           <Key>
@@ -214,15 +256,81 @@
             </Dependent>
           </ReferentialConstraint>
         </Association>
+        <Association Name="FK_InventoryMovements_InventoryItems">
+          <End Role="InventoryItems" Type="Self.InventoryItems" Multiplicity="1" />
+          <End Role="InventoryMovements" Type="Self.InventoryMovements" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="InventoryItems">
+              <PropertyRef Name="InventoryItemId" />
+            </Principal>
+            <Dependent Role="InventoryMovements">
+              <PropertyRef Name="InventoryItemId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_InventoryMovements_Orders">
+          <End Role="Orders" Type="Self.Orders" Multiplicity="0..1" />
+          <End Role="InventoryMovements" Type="Self.InventoryMovements" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Orders">
+              <PropertyRef Name="OrderId" />
+            </Principal>
+            <Dependent Role="InventoryMovements">
+              <PropertyRef Name="OrderId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_InventoryMovements_Products">
+          <End Role="Products" Type="Self.Products" Multiplicity="0..1" />
+          <End Role="InventoryMovements" Type="Self.InventoryMovements" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Products">
+              <PropertyRef Name="ProductId" />
+            </Principal>
+            <Dependent Role="InventoryMovements">
+              <PropertyRef Name="ProductId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ProductMaterials_InventoryItems">
+          <End Role="InventoryItems" Type="Self.InventoryItems" Multiplicity="1" />
+          <End Role="ProductMaterials" Type="Self.ProductMaterials" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="InventoryItems">
+              <PropertyRef Name="InventoryItemId" />
+            </Principal>
+            <Dependent Role="ProductMaterials">
+              <PropertyRef Name="InventoryItemId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ProductMaterials_Products">
+          <End Role="Products" Type="Self.Products" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="ProductMaterials" Type="Self.ProductMaterials" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Products">
+              <PropertyRef Name="ProductId" />
+            </Principal>
+            <Dependent Role="ProductMaterials">
+              <PropertyRef Name="ProductId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
         <EntityContainer Name="Хранилище DB_Xammer_groupModelContainer">
+          <EntitySet Name="InventoryItems" EntityType="Self.InventoryItems" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="InventoryMovements" EntityType="Self.InventoryMovements" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="OrderItems" EntityType="Self.OrderItems" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Orders" EntityType="Self.Orders" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="OrderStatuses" EntityType="Self.OrderStatuses" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="ProductionStages" EntityType="Self.ProductionStages" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="ProductionStageStatuses" EntityType="Self.ProductionStageStatuses" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="ProductionStageTypes" EntityType="Self.ProductionStageTypes" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ProductMaterials" EntityType="Self.ProductMaterials" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Products" EntityType="Self.Products" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Roles" EntityType="Self.Roles" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="sysdiagrams" EntityType="Self.sysdiagrams" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Users" EntityType="Self.Users" Schema="dbo" store:Type="Tables" />
           <AssociationSet Name="FK__OrderItem__Order__5BE2A6F2" Association="Self.FK__OrderItem__Order__5BE2A6F2">
             <End Role="Orders" EntitySet="Orders" />
@@ -264,9 +372,28 @@
             <End Role="Roles" EntitySet="Roles" />
             <End Role="Users" EntitySet="Users" />
           </AssociationSet>
+          <AssociationSet Name="FK_InventoryMovements_InventoryItems" Association="Self.FK_InventoryMovements_InventoryItems">
+            <End Role="InventoryItems" EntitySet="InventoryItems" />
+            <End Role="InventoryMovements" EntitySet="InventoryMovements" />
+          </AssociationSet>
+          <AssociationSet Name="FK_InventoryMovements_Orders" Association="Self.FK_InventoryMovements_Orders">
+            <End Role="Orders" EntitySet="Orders" />
+            <End Role="InventoryMovements" EntitySet="InventoryMovements" />
+          </AssociationSet>
+          <AssociationSet Name="FK_InventoryMovements_Products" Association="Self.FK_InventoryMovements_Products">
+            <End Role="Products" EntitySet="Products" />
+            <End Role="InventoryMovements" EntitySet="InventoryMovements" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ProductMaterials_InventoryItems" Association="Self.FK_ProductMaterials_InventoryItems">
+            <End Role="InventoryItems" EntitySet="InventoryItems" />
+            <End Role="ProductMaterials" EntitySet="ProductMaterials" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ProductMaterials_Products" Association="Self.FK_ProductMaterials_Products">
+            <End Role="Products" EntitySet="Products" />
+            <End Role="ProductMaterials" EntitySet="ProductMaterials" />
+          </AssociationSet>
         </EntityContainer>
-      </Schema>
-    </edmx:StorageModels>
+      </Schema></edmx:StorageModels>
     <!-- CSDL content -->
     <edmx:ConceptualModels>
       <Schema Namespace="DB_Xammer_groupModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
@@ -300,6 +427,7 @@
           <NavigationProperty Name="Users1" Relationship="Self.FK__Orders__ManagerI__5812160E" FromRole="Orders" ToRole="Users" />
           <NavigationProperty Name="OrderStatuses" Relationship="Self.FK__Orders__StatusId__59063A47" FromRole="Orders" ToRole="OrderStatuses" />
           <NavigationProperty Name="ProductionStages" Relationship="Self.FK__Productio__Order__6383C8BA" FromRole="Orders" ToRole="ProductionStages" />
+          <NavigationProperty Name="InventoryMovements" Relationship="DB_Xammer_groupModel.FK_InventoryMovements_Orders" FromRole="Orders" ToRole="InventoryMovements" />
         </EntityType>
         <EntityType Name="OrderStatuses">
           <Key>
@@ -352,6 +480,8 @@
           <Property Name="ImagePath" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
           <Property Name="IsActive" Type="Boolean" />
           <NavigationProperty Name="OrderItems" Relationship="Self.FK__OrderItem__Produ__5CD6CB2B" FromRole="Products" ToRole="OrderItems" />
+          <NavigationProperty Name="InventoryMovements" Relationship="DB_Xammer_groupModel.FK_InventoryMovements_Products" FromRole="Products" ToRole="InventoryMovements" />
+          <NavigationProperty Name="ProductMaterials" Relationship="DB_Xammer_groupModel.FK_ProductMaterials_Products" FromRole="Products" ToRole="ProductMaterials" />
         </EntityType>
         <EntityType Name="Roles">
           <Key>
@@ -549,7 +679,142 @@
             <End Role="Roles" EntitySet="Roles" />
             <End Role="Users" EntitySet="Users" />
           </AssociationSet>
+          <EntitySet Name="InventoryItems" EntityType="DB_Xammer_groupModel.InventoryItems" />
+          <EntitySet Name="InventoryMovements" EntityType="DB_Xammer_groupModel.InventoryMovements" />
+          <EntitySet Name="ProductMaterials" EntityType="DB_Xammer_groupModel.ProductMaterials" />
+          <EntitySet Name="sysdiagrams" EntityType="DB_Xammer_groupModel.sysdiagrams" />
+          <AssociationSet Name="FK_InventoryMovements_InventoryItems" Association="DB_Xammer_groupModel.FK_InventoryMovements_InventoryItems">
+            <End Role="InventoryItems" EntitySet="InventoryItems" />
+            <End Role="InventoryMovements" EntitySet="InventoryMovements" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ProductMaterials_InventoryItems" Association="DB_Xammer_groupModel.FK_ProductMaterials_InventoryItems">
+            <End Role="InventoryItems" EntitySet="InventoryItems" />
+            <End Role="ProductMaterials" EntitySet="ProductMaterials" />
+          </AssociationSet>
+          <AssociationSet Name="FK_InventoryMovements_Orders" Association="DB_Xammer_groupModel.FK_InventoryMovements_Orders">
+            <End Role="Orders" EntitySet="Orders" />
+            <End Role="InventoryMovements" EntitySet="InventoryMovements" />
+          </AssociationSet>
+          <AssociationSet Name="FK_InventoryMovements_Products" Association="DB_Xammer_groupModel.FK_InventoryMovements_Products">
+            <End Role="Products" EntitySet="Products" />
+            <End Role="InventoryMovements" EntitySet="InventoryMovements" />
+          </AssociationSet>
+          <AssociationSet Name="FK_ProductMaterials_Products" Association="DB_Xammer_groupModel.FK_ProductMaterials_Products">
+            <End Role="Products" EntitySet="Products" />
+            <End Role="ProductMaterials" EntitySet="ProductMaterials" />
+          </AssociationSet>
         </EntityContainer>
+        <EntityType Name="InventoryItems">
+          <Key>
+            <PropertyRef Name="InventoryItemId" />
+          </Key>
+          <Property Name="InventoryItemId" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="ItemName" Type="String" Nullable="false" MaxLength="150" FixedLength="false" Unicode="true" />
+          <Property Name="UnitName" Type="String" Nullable="false" MaxLength="30" FixedLength="false" Unicode="true" />
+          <Property Name="QuantityOnHand" Type="Decimal" Nullable="false" Precision="12" Scale="3" />
+          <Property Name="MinQuantity" Type="Decimal" Nullable="false" Precision="12" Scale="3" />
+          <Property Name="IsActive" Type="Boolean" Nullable="false" />
+          <NavigationProperty Name="InventoryMovements" Relationship="DB_Xammer_groupModel.FK_InventoryMovements_InventoryItems" FromRole="InventoryItems" ToRole="InventoryMovements" />
+          <NavigationProperty Name="ProductMaterials" Relationship="DB_Xammer_groupModel.FK_ProductMaterials_InventoryItems" FromRole="InventoryItems" ToRole="ProductMaterials" />
+        </EntityType>
+        <EntityType Name="InventoryMovements">
+          <Key>
+            <PropertyRef Name="MovementId" />
+          </Key>
+          <Property Name="MovementId" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="InventoryItemId" Type="Int32" Nullable="false" />
+          <Property Name="OrderId" Type="Int32" />
+          <Property Name="ProductId" Type="Int32" />
+          <Property Name="QuantityChange" Type="Decimal" Nullable="false" Precision="12" Scale="3" />
+          <Property Name="MovementDate" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="Comment" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="InventoryItems" Relationship="DB_Xammer_groupModel.FK_InventoryMovements_InventoryItems" FromRole="InventoryMovements" ToRole="InventoryItems" />
+          <NavigationProperty Name="Orders" Relationship="DB_Xammer_groupModel.FK_InventoryMovements_Orders" FromRole="InventoryMovements" ToRole="Orders" />
+          <NavigationProperty Name="Products" Relationship="DB_Xammer_groupModel.FK_InventoryMovements_Products" FromRole="InventoryMovements" ToRole="Products" />
+        </EntityType>
+        <EntityType Name="ProductMaterials">
+          <Key>
+            <PropertyRef Name="ProductMaterialId" />
+          </Key>
+          <Property Name="ProductMaterialId" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="ProductId" Type="Int32" Nullable="false" />
+          <Property Name="InventoryItemId" Type="Int32" Nullable="false" />
+          <Property Name="Quantity" Type="Decimal" Nullable="false" Precision="12" Scale="3" />
+          <NavigationProperty Name="InventoryItems" Relationship="DB_Xammer_groupModel.FK_ProductMaterials_InventoryItems" FromRole="ProductMaterials" ToRole="InventoryItems" />
+          <NavigationProperty Name="Products" Relationship="DB_Xammer_groupModel.FK_ProductMaterials_Products" FromRole="ProductMaterials" ToRole="Products" />
+        </EntityType>
+        <EntityType Name="sysdiagrams">
+          <Key>
+            <PropertyRef Name="diagram_id" />
+          </Key>
+          <Property Name="name" Type="String" Nullable="false" MaxLength="128" FixedLength="false" Unicode="true" />
+          <Property Name="principal_id" Type="Int32" Nullable="false" />
+          <Property Name="diagram_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="version" Type="Int32" />
+          <Property Name="definition" Type="Binary" MaxLength="Max" FixedLength="false" />
+        </EntityType>
+        <Association Name="FK_InventoryMovements_InventoryItems">
+          <End Type="DB_Xammer_groupModel.InventoryItems" Role="InventoryItems" Multiplicity="1" />
+          <End Type="DB_Xammer_groupModel.InventoryMovements" Role="InventoryMovements" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="InventoryItems">
+              <PropertyRef Name="InventoryItemId" />
+            </Principal>
+            <Dependent Role="InventoryMovements">
+              <PropertyRef Name="InventoryItemId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ProductMaterials_InventoryItems">
+          <End Type="DB_Xammer_groupModel.InventoryItems" Role="InventoryItems" Multiplicity="1" />
+          <End Type="DB_Xammer_groupModel.ProductMaterials" Role="ProductMaterials" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="InventoryItems">
+              <PropertyRef Name="InventoryItemId" />
+            </Principal>
+            <Dependent Role="ProductMaterials">
+              <PropertyRef Name="InventoryItemId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_InventoryMovements_Orders">
+          <End Type="DB_Xammer_groupModel.Orders" Role="Orders" Multiplicity="0..1" />
+          <End Type="DB_Xammer_groupModel.InventoryMovements" Role="InventoryMovements" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Orders">
+              <PropertyRef Name="OrderId" />
+            </Principal>
+            <Dependent Role="InventoryMovements">
+              <PropertyRef Name="OrderId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_InventoryMovements_Products">
+          <End Type="DB_Xammer_groupModel.Products" Role="Products" Multiplicity="0..1" />
+          <End Type="DB_Xammer_groupModel.InventoryMovements" Role="InventoryMovements" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Products">
+              <PropertyRef Name="ProductId" />
+            </Principal>
+            <Dependent Role="InventoryMovements">
+              <PropertyRef Name="ProductId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_ProductMaterials_Products">
+          <End Type="DB_Xammer_groupModel.Products" Role="Products" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Type="DB_Xammer_groupModel.ProductMaterials" Role="ProductMaterials" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Products">
+              <PropertyRef Name="ProductId" />
+            </Principal>
+            <Dependent Role="ProductMaterials">
+              <PropertyRef Name="ProductId" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
       </Schema>
     </edmx:ConceptualModels>
     <!-- C-S mapping content -->
@@ -651,6 +916,52 @@
                 <ScalarProperty Name="Phone" ColumnName="Phone" />
                 <ScalarProperty Name="RoleId" ColumnName="RoleId" />
                 <ScalarProperty Name="CreatedDate" ColumnName="CreatedDate" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="InventoryItems">
+            <EntityTypeMapping TypeName="DB_Xammer_groupModel.InventoryItems">
+              <MappingFragment StoreEntitySet="InventoryItems">
+                <ScalarProperty Name="IsActive" ColumnName="IsActive" />
+                <ScalarProperty Name="MinQuantity" ColumnName="MinQuantity" />
+                <ScalarProperty Name="QuantityOnHand" ColumnName="QuantityOnHand" />
+                <ScalarProperty Name="UnitName" ColumnName="UnitName" />
+                <ScalarProperty Name="ItemName" ColumnName="ItemName" />
+                <ScalarProperty Name="InventoryItemId" ColumnName="InventoryItemId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="InventoryMovements">
+            <EntityTypeMapping TypeName="DB_Xammer_groupModel.InventoryMovements">
+              <MappingFragment StoreEntitySet="InventoryMovements">
+                <ScalarProperty Name="Comment" ColumnName="Comment" />
+                <ScalarProperty Name="MovementDate" ColumnName="MovementDate" />
+                <ScalarProperty Name="QuantityChange" ColumnName="QuantityChange" />
+                <ScalarProperty Name="ProductId" ColumnName="ProductId" />
+                <ScalarProperty Name="OrderId" ColumnName="OrderId" />
+                <ScalarProperty Name="InventoryItemId" ColumnName="InventoryItemId" />
+                <ScalarProperty Name="MovementId" ColumnName="MovementId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ProductMaterials">
+            <EntityTypeMapping TypeName="DB_Xammer_groupModel.ProductMaterials">
+              <MappingFragment StoreEntitySet="ProductMaterials">
+                <ScalarProperty Name="Quantity" ColumnName="Quantity" />
+                <ScalarProperty Name="InventoryItemId" ColumnName="InventoryItemId" />
+                <ScalarProperty Name="ProductId" ColumnName="ProductId" />
+                <ScalarProperty Name="ProductMaterialId" ColumnName="ProductMaterialId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="sysdiagrams">
+            <EntityTypeMapping TypeName="DB_Xammer_groupModel.sysdiagrams">
+              <MappingFragment StoreEntitySet="sysdiagrams">
+                <ScalarProperty Name="definition" ColumnName="definition" />
+                <ScalarProperty Name="version" ColumnName="version" />
+                <ScalarProperty Name="diagram_id" ColumnName="diagram_id" />
+                <ScalarProperty Name="principal_id" ColumnName="principal_id" />
+                <ScalarProperty Name="name" ColumnName="name" />
               </MappingFragment>
             </EntityTypeMapping>
           </EntitySetMapping>

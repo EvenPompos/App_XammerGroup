@@ -13,17 +13,24 @@ namespace App_XammerGroup
     {
         private readonly int _userId;
         private readonly bool _canManageOrders;
+        private readonly int _roleId;
+        private string _currentRoleName = string.Empty;
 
         private List<OrderListItem> _allOrders = new List<OrderListItem>();
         private List<StatusOption> _statuses = new List<StatusOption>();
         private List<UserOption> _managers = new List<UserOption>();
         private OrderListItem _selectedOrder;
 
-        public OrdersPage(int userId, bool canManageOrders)
+        private bool IsAdmin => _roleId == 1 || IsAdminRole(_currentRoleName);
+        private bool IsManager => IsManagerRole(_currentRoleName);
+        private bool IsClient => _roleId == 4 || IsClientRole(_currentRoleName);
+
+        public OrdersPage(int userId, int roleId, bool canManageOrders)
         {
             InitializeComponent();
 
             _userId = userId;
+            _roleId = roleId;
             _canManageOrders = canManageOrders;
 
             Loaded += OrdersPage_Loaded;
@@ -55,6 +62,12 @@ namespace App_XammerGroup
         {
             using (var db = new DB_Xammer_groupEntities())
             {
+                var currentUser = db.Users
+                    .Include(item => item.Roles)
+                    .FirstOrDefault(item => item.UserId == _userId);
+
+                _currentRoleName = currentUser?.Roles?.RoleName ?? string.Empty;
+
                 _statuses = db.OrderStatuses
                     .OrderBy(item => item.StatusName)
                     .Select(item => new StatusOption
@@ -67,7 +80,7 @@ namespace App_XammerGroup
                 _managers = db.Users
                     .Include(item => item.Roles)
                     .ToList()
-                    .Where(IsManagementUser)
+                    .Where(IsManagerUser)
                     .OrderBy(item => item.LastName)
                     .ThenBy(item => item.FirstName)
                     .Select(item => new UserOption
@@ -114,9 +127,17 @@ namespace App_XammerGroup
                     .Include(item => item.Users1)
                     .Include(item => item.OrderStatuses);
 
-                if (!_canManageOrders)
+                if (IsClient)
                 {
                     query = query.Where(item => item.ClientId == _userId);
+                }
+                else if (IsManager && !IsAdmin)
+                {
+                    query = query.Where(item => item.ManagerId == _userId);
+                }
+                else if (!IsAdmin)
+                {
+                    query = query.Where(item => false);
                 }
 
                 _allOrders = query
@@ -142,9 +163,39 @@ namespace App_XammerGroup
 
         private void ApplyMode()
         {
-            ModeText.Text = _canManageOrders
-                ? "\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u0443\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0437\u0430\u043a\u0430\u0437\u0430\u043c\u0438: \u0441\u0442\u0430\u0442\u0443\u0441, \u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440, \u0441\u0440\u043e\u043a, \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0435 \u0438 \u043a\u043e\u043c\u043c\u0435\u043d\u0442\u0430\u0440\u0438\u0439."
-                : "\u041a\u043b\u0438\u0435\u043d\u0442 \u0432\u0438\u0434\u0438\u0442 \u0442\u043e\u043b\u044c\u043a\u043e \u0441\u0432\u043e\u0438 \u0437\u0430\u043a\u0430\u0437\u044b \u0431\u0435\u0437 \u0432\u043e\u0437\u043c\u043e\u0436\u043d\u043e\u0441\u0442\u0438 \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c.";
+            if (IsClient)
+            {
+                ModeText.Text = "Клиент может только просматривать свои заказы без возможности редактирования.";
+                return;
+            }
+
+            if (IsAdmin)
+            {
+                ModeText.Text = "Администратор видит все заказы и назначает менеджера на заказ.";
+                return;
+            }
+
+            if (IsManager)
+            {
+                ModeText.Text = "Менеджер видит только назначенные на него заказы и может менять срок, статус и комментарий.";
+                return;
+            }
+
+            if (IsClient)
+            {
+                ModeText.Text =
+                    "Клиент может только просматривать свои заказы без возможности редактирования.";
+            }
+            else if (IsAdmin || IsManager)
+            {
+                ModeText.Text =
+                    "Доступно управление заказами: статус, менеджер, срок, описание и комментарий.";
+            }
+            else
+            {
+                ModeText.Text =
+                    "Режим просмотра заказов.";
+            }
         }
 
         private void Filters_Changed(object sender, RoutedEventArgs e)
@@ -232,7 +283,7 @@ namespace App_XammerGroup
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {
-            if (!_canManageOrders || _selectedOrder == null)
+            if (!CanSaveSelectedOrder())
             {
                 return;
             }
@@ -257,11 +308,23 @@ namespace App_XammerGroup
                         return;
                     }
 
-                    order.ManagerId = ManagerBox.SelectedValue as int?;
-                    order.StatusId = selectedStatusId;
-                    order.DeadlineDate = DeadlinePicker.SelectedDate;
-                    order.Description = NormalizeMultiline(DescriptionBox.Text);
-                    order.Comment = NormalizeMultiline(CommentBox.Text);
+                    if (IsManager && !IsAdmin && order.ManagerId != _userId)
+                    {
+                        ErrorText.Text = "Этот заказ не назначен на текущего менеджера.";
+                        return;
+                    }
+
+                    if (IsAdmin)
+                    {
+                        order.ManagerId = ManagerBox.SelectedValue as int?;
+                    }
+
+                    if (CanEditOrderDetails())
+                    {
+                        order.StatusId = selectedStatusId;
+                        order.DeadlineDate = DeadlinePicker.SelectedDate;
+                        order.Comment = NormalizeMultiline(CommentBox.Text);
+                    }
 
                     db.SaveChanges();
                 }
@@ -316,15 +379,32 @@ namespace App_XammerGroup
 
         private void SetEditorEnabled(bool hasSelection)
         {
-            bool editable = hasSelection && _canManageOrders;
+            bool canEditManager = hasSelection && IsAdmin;
+            bool canEditDetails = hasSelection && CanEditOrderDetails();
+            bool canSave = canEditManager || canEditDetails;
 
-            ManagerBox.IsEnabled = editable;
-            StatusBox.IsEnabled = editable;
-            DeadlinePicker.IsEnabled = editable;
-            DescriptionBox.IsReadOnly = !editable;
-            CommentBox.IsReadOnly = !editable;
-            SaveButton.Visibility = _canManageOrders ? Visibility.Visible : Visibility.Collapsed;
-            SaveButton.IsEnabled = editable;
+            ManagerBox.IsEnabled = canEditManager;
+            StatusBox.IsEnabled = canEditDetails;
+            DeadlinePicker.IsEnabled = canEditDetails;
+
+            DescriptionBox.IsReadOnly = true;
+            CommentBox.IsReadOnly = !canEditDetails;
+
+            SaveButton.Visibility = canSave
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+            SaveButton.IsEnabled = canSave;
+        }
+
+        private bool CanSaveSelectedOrder()
+        {
+            return _selectedOrder != null && (IsAdmin || CanEditOrderDetails());
+        }
+
+        private bool CanEditOrderDetails()
+        {
+            return IsAdmin || (IsManager && _selectedOrder != null && _selectedOrder.ManagerId == _userId);
         }
 
         private static bool ContainsText(string source, string value)
@@ -339,17 +419,39 @@ namespace App_XammerGroup
             return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
         }
 
-        private static bool IsManagementUser(Users user)
+        private static bool IsManagerUser(Users user)
         {
             string roleName = user.Roles?.RoleName?.Trim().ToLowerInvariant() ?? string.Empty;
 
-            return roleName.Contains("admin")
-                || roleName.Contains("manager")
-                || roleName.Contains("master")
-                || roleName.Contains("\u0430\u0434\u043c\u0438\u043d")
-                || roleName.Contains("\u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440")
-                || roleName.Contains("\u043c\u0430\u0441\u0442\u0435\u0440")
-                || user.RoleId == 1;
+            return IsManagerRole(roleName);
+        }
+
+        private static bool IsAdminRole(string roleName)
+        {
+            string normalizedRole = NormalizeRoleName(roleName);
+            return normalizedRole.Contains("admin") ||
+                   normalizedRole.Contains("\u0430\u0434\u043c\u0438\u043d");
+        }
+
+        private static bool IsManagerRole(string roleName)
+        {
+            string normalizedRole = NormalizeRoleName(roleName);
+            return normalizedRole.Contains("manager") ||
+                   normalizedRole.Contains("\u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440");
+        }
+
+        private static bool IsClientRole(string roleName)
+        {
+            string normalizedRole = NormalizeRoleName(roleName);
+            return normalizedRole.Contains("client") ||
+                   normalizedRole.Contains("\u043a\u043b\u0438\u0435\u043d\u0442");
+        }
+
+        private static string NormalizeRoleName(string roleName)
+        {
+            return string.IsNullOrWhiteSpace(roleName)
+                ? string.Empty
+                : roleName.Trim().ToLowerInvariant();
         }
 
         private static string BuildFullName(Users user, string fallback = null)

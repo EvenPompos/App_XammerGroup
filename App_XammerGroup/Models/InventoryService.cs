@@ -255,6 +255,10 @@ namespace App_XammerGroup
                           p.ProductId,
                           CASE
                               WHEN COUNT(pm.ProductMaterialId) = 0 THEN CAST(0 AS bit)
+                              ELSE CAST(1 AS bit)
+                          END AS HasMaterials,
+                          CASE
+                              WHEN COUNT(pm.ProductMaterialId) = 0 THEN CAST(0 AS bit)
                               WHEN SUM(CASE WHEN ii.QuantityOnHand < pm.Quantity THEN 1 ELSE 0 END) > 0 THEN CAST(0 AS bit)
                               ELSE CAST(1 AS bit)
                           END AS IsAvailable,
@@ -278,6 +282,12 @@ namespace App_XammerGroup
             }
 
             EnsureSchemaAndSeed(db);
+
+            var productsWithoutMaterials = GetProductsWithoutMaterials(db, cartItems);
+            if (productsWithoutMaterials.Count > 0)
+            {
+                throw new InvalidOperationException(BuildMissingMaterialsMessage(productsWithoutMaterials));
+            }
 
             var requiredByItem = BuildRequiredMaterials(db, cartItems);
             return requiredByItem
@@ -326,12 +336,19 @@ namespace App_XammerGroup
 
                 foreach (var material in materials)
                 {
-                    db.Database.ExecuteSqlCommand(
+                    int affectedRows = db.Database.ExecuteSqlCommand(
                         @"UPDATE dbo.InventoryItems
                           SET QuantityOnHand = QuantityOnHand - @quantity
-                          WHERE InventoryItemId = @inventoryItemId",
+                          WHERE InventoryItemId = @inventoryItemId
+                            AND QuantityOnHand >= @quantity",
                         new SqlParameter("@quantity", material.RequiredQuantity),
                         new SqlParameter("@inventoryItemId", material.InventoryItemId));
+
+                    if (affectedRows == 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Не удалось списать материал \"{material.ItemName}\" со склада. Проверьте остаток.");
+                    }
 
                     db.Database.ExecuteSqlCommand(
                         @"INSERT INTO dbo.InventoryMovements
@@ -345,6 +362,11 @@ namespace App_XammerGroup
                         new SqlParameter("@comment", "Order write-off"));
                 }
             }
+        }
+
+        public static string BuildMissingMaterialsMessage(IEnumerable<string> productNames)
+        {
+            return "Для этих изделий не задан состав:\n" + string.Join("\n", productNames);
         }
 
         public static string BuildShortageMessage(IEnumerable<InventoryShortage> shortages)
@@ -647,7 +669,6 @@ namespace App_XammerGroup
                   BEGIN
                       UPDATE dbo.InventoryItems
                       SET UnitName = @unitName,
-                          QuantityOnHand = CASE WHEN QuantityOnHand < @quantity THEN @quantity ELSE QuantityOnHand END,
                           MinQuantity = @minQuantity,
                           IsActive = 1
                       WHERE ItemName = @itemName;
@@ -756,6 +777,26 @@ namespace App_XammerGroup
                 .ToList();
         }
 
+        private static List<string> GetProductsWithoutMaterials(DB_Xammer_groupEntities db, IReadOnlyList<CartItem> cartItems)
+        {
+            var productIds = cartItems
+                .Where(item => item.Quantity > 0)
+                .Select(item => item.ProductId)
+                .Distinct()
+                .ToList();
+
+            if (productIds.Count == 0)
+            {
+                return new List<string>();
+            }
+
+            return db.Products
+                .Where(product => productIds.Contains(product.ProductId) && !product.ProductMaterials.Any())
+                .OrderBy(product => product.ProductName)
+                .Select(product => product.ProductName)
+                .ToList();
+        }
+
         private static string NormalizeSqlText(string value)
         {
             string trimmed = value?.Trim();
@@ -804,6 +845,7 @@ namespace App_XammerGroup
     public sealed class ProductAvailabilityInfo
     {
         public int ProductId { get; set; }
+        public bool HasMaterials { get; set; }
         public bool IsAvailable { get; set; }
         public string AvailabilityText { get; set; }
     }

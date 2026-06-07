@@ -12,25 +12,22 @@ namespace App_XammerGroup
     using System;
     using System.Collections.Generic;
     
-    public partial class Products
+    public partial class InventoryItems
     {
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2214:DoNotCallOverridableMethodsInConstructors")]
-        public Products()
+        public InventoryItems()
         {
-            this.OrderItems = new HashSet<OrderItems>();
             this.InventoryMovements = new HashSet<InventoryMovements>();
             this.ProductMaterials = new HashSet<ProductMaterials>();
         }
     
-        public int ProductId { get; set; }
-        public string ProductName { get; set; }
-        public string Description { get; set; }
-        public decimal Price { get; set; }
-        public string ImagePath { get; set; }
-        public Nullable<bool> IsActive { get; set; }
+        public int InventoryItemId { get; set; }
+        public string ItemName { get; set; }
+        public string UnitName { get; set; }
+        public decimal QuantityOnHand { get; set; }
+        public decimal MinQuantity { get; set; }
+        public bool IsActive { get; set; }
     
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
-        public virtual ICollection<OrderItems> OrderItems { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<InventoryMovements> InventoryMovements { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]

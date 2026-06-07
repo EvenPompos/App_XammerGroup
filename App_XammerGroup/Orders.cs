@@ -19,6 +19,7 @@ namespace App_XammerGroup
         {
             this.OrderItems = new HashSet<OrderItems>();
             this.ProductionStages = new HashSet<ProductionStages>();
+            this.InventoryMovements = new HashSet<InventoryMovements>();
         }
     
         public int OrderId { get; set; }
@@ -38,5 +39,7 @@ namespace App_XammerGroup
         public virtual OrderStatuses OrderStatuses { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<ProductionStages> ProductionStages { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public virtual ICollection<InventoryMovements> InventoryMovements { get; set; }
     }
 }

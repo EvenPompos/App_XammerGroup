@@ -34,5 +34,9 @@ namespace App_XammerGroup
         public virtual DbSet<Products> Products { get; set; }
         public virtual DbSet<Roles> Roles { get; set; }
         public virtual DbSet<Users> Users { get; set; }
+        public virtual DbSet<InventoryItems> InventoryItems { get; set; }
+        public virtual DbSet<InventoryMovements> InventoryMovements { get; set; }
+        public virtual DbSet<ProductMaterials> ProductMaterials { get; set; }
+        public virtual DbSet<sysdiagrams> sysdiagrams { get; set; }
     }
 }
